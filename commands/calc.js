@@ -1,9 +1,19 @@
+function formatUsage() {
+  return [
+    '🧮 FORMAT KALKULATOR',
+    '',
+    'tambah 10 5',
+    'kurang 10 5',
+    'kali 10 5',
+    'bagi 10 5'
+  ].join('\n');
+}
+
 function handleCalc(text) {
-  const m = String(text || '').trim().match(/^(tambah|kurang|kali|bagi)\s+(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)$/i);
+  const raw = String(text || '').trim();
+  const m = raw.match(/^(tambah|kurang|kali|bagi)\s+(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)$/i);
   if (!m) {
-    if (/^(tambah|kurang|kali|bagi)/i.test(String(text || '').trim())) {
-      return 'Format kalkulator salah. Contoh: tambah 100 50 | kurang 100 20 | kali 10 5 | bagi 10 4';
-    }
+    if (/^(tambah|kurang|kali|bagi)(\s|$)/i.test(raw)) return formatUsage();
     return null;
   }
 
