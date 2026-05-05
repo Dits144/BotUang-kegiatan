@@ -104,3 +104,4 @@ npm run build && npm start
   - `DATABASE_CLIENT=postgres`
   - `DATABASE_URL=postgres://user:pass@host:5432/dbname`
 - Jalankan migration yang sama via `npm run migrate`.
+# BotUang-kegiatan
