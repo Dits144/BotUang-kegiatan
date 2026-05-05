@@ -34,7 +34,7 @@ function menuText() {
     '#statussewa',
     '',
     '*Klaim Owner Cepat:*',
-    'Ditsanalah144'
+    '#claimowner'
   ].join('\n');
 }
 
