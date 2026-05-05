@@ -15,13 +15,6 @@ function key(groupId, senderId) {
 function handleTodo(ctx, canManage) {
   const text = ctx.text.trim();
 
-  if (text.toLowerCase() === 'todo') {
-    return ['⚠️ Format yang benar:', 'todo tambah (text)', '', 'Contoh:', 'todo tambah revisi skripsi'].join('\n');
-  }
-  if (text.toLowerCase() === 'doto') {
-    return ['⚠️ Format yang benar:', 'doto (nomor)', '', 'Contoh:', 'doto 1'].join('\n');
-  }
-
   if (/^todo\s+lihat$/i.test(text) || /^todolist$/i.test(text)) {
     const rows = db.prepare('SELECT * FROM todos WHERE group_id=? AND deleted_at IS NULL ORDER BY datetime(created_at) ASC').all(ctx.groupId);
     if (!rows.length) return '📝 TO DO LIST\n\n- Belum ada tugas.';

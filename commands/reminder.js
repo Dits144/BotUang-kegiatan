@@ -25,13 +25,11 @@ function parseRemind(raw) {
 }
 
 function handleRemind(ctx, canManage) {
-  if (ctx.text.trim().toLowerCase() === 'remind') return ['⚠️ Format yang benar:', 'remind (time/date)@(text)', '', 'Contoh:', 'remind 05:00@bangun sholat subuh', 'remind 17/08/2026@Peringatan Kemerdekaan Indonesia'].join('\n');
   if (!/^remind\s+/i.test(ctx.text.trim())) return null;
   if (!canManage) return '❌ Anda tidak memiliki akses untuk perintah ini.';
 
   const parsed = parseRemind(ctx.text.trim());
-  if (!parsed) return 'Format salah. Contoh: remind 05:00@bangun sholat subuh atau remind 17/08/2026@Peringatan Kemerdekaan Indonesia';
-  if (parsed.error) return parsed.error;
+  if (!parsed || parsed.error) return '⚠️ Format salah\n\nGunakan:\nremind 05:00@pesan\nremind 17/08/2026@pesan';
 
   db.prepare(`
     INSERT INTO reminders (group_id, remind_type, remind_value, remind_text, created_at, created_by)
@@ -56,7 +54,6 @@ function handleListRemind(ctx) {
 }
 
 function handleNoRemind(ctx, canManage) {
-  if (ctx.text.trim().toLowerCase() === 'noremind') return ['⚠️ Format yang benar:', 'noremind (time/date)', '', 'Contoh:', 'noremind 05:00'].join('\n');
   const m = ctx.text.trim().match(/^noremind\s+(.+)$/i);
   if (!m) return null;
   if (!canManage) return '❌ Anda tidak memiliki akses untuk perintah ini.';
@@ -102,7 +99,7 @@ async function processDueReminders(sock) {
       if (!inserted.changes) continue;
 
       await sock.sendMessage(r.group_id, {
-        text: `⏰ Reminder\n${r.remind_value} - ${r.remind_text}`
+        text: `⏰ REMINDER\n\n${r.remind_text}`
       });
     } catch (e) {
       console.error('Reminder send error:', e.message);

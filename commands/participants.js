@@ -39,9 +39,6 @@ function setHeader(groupId, text) {
 }
 
 function handleSetHeader(ctx, canManage) {
-  if (ctx.text.trim().toLowerCase() === 'setheader') {
-    return ['⚠️ Format yang benar:', 'setheader@(text)', '', 'Contoh:', 'setheader@PESERTA\nOPEN TRIP PAPANDAYAN\nTanggal: 28 Maret 2026\nMeeting Point: Bogor'].join('\n');
-  }
   if (!/^setheader@/i.test(ctx.text.trim())) return null;
   if (!canManage) return '❌ Anda tidak memiliki akses untuk perintah ini.';
 
@@ -102,9 +99,6 @@ function handleNumericDetail(ctx) {
 }
 
 function handleAddPeserta(ctx, canManage) {
-  if (ctx.text.trim().toLowerCase() === 'addpeserta') {
-    return ['⚠️ Format yang benar:', 'addpeserta (nama)@(data)', '', 'Contoh:', 'addpeserta Radit@(No HP: 08xxx | Kota: Bogor)'].join('\n');
-  }
   if (!/^addpeserta\s+/i.test(ctx.text.trim())) return null;
   if (!canManage) return '❌ Anda tidak memiliki akses untuk perintah ini.';
 
@@ -124,7 +118,6 @@ function handleAddPeserta(ctx, canManage) {
 }
 
 function handleDeletePeserta(ctx, canManage) {
-  if (ctx.text.trim().toLowerCase() === 'delpeserta') return ['⚠️ Format yang benar:', 'delpeserta no 4'].join('\n');
   const m = ctx.text.trim().match(/^delpeserta\s+no\s+(\d+)$/i);
   if (!m) return null;
   if (!canManage) return '❌ Anda tidak memiliki akses untuk perintah ini.';
@@ -141,9 +134,6 @@ function handleDeletePeserta(ctx, canManage) {
 
 function handleUpdatePeserta(ctx, canManage) {
   const raw = ctx.text.trim();
-  if (raw.toLowerCase() === 'updatepeserta') {
-    return ['⚠️ Format yang benar:', 'updatepeserta no 4@(data baru)', '', 'Contoh:', 'updatepeserta no 4@(No HP: 08xxx | Kota: Bogor | Sudah DP)'].join('\n');
-  }
   if (!/^updatepeserta\s+no\s+/i.test(raw)) return null;
   if (!canManage) return '❌ Anda tidak memiliki akses untuk perintah ini.';
 

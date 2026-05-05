@@ -33,6 +33,23 @@ function getText(msg) {
   return c?.conversation || c?.extendedTextMessage?.text || c?.imageMessage?.caption || c?.videoMessage?.caption || '';
 }
 
+function sendFormatHelper(cmd) {
+  const helpers = {
+    'edit': '⚠️ Format edit:\n\nedit no (data baru)\n\nContoh:\nedit 2 + 10000 (Revisi donasi)',
+    'hapus': '⚠️ Format hapus:\n\nhapus no\n\nContoh:\nhapus 3',
+    'detail': '⚠️ Format detail:\n\ndetail no\n\nContoh:\ndetail 1',
+    'addpeserta': '⚠️ Format addpeserta:\n\naddpeserta (nama)\n\nContoh:\naddpeserta Budi',
+    'updatepeserta': '⚠️ Format updatepeserta:\n\nupdatepeserta no_lama (nama_baru)\n\nContoh:\nupdatepeserta 1 Budi Santoso',
+    'delpeserta': '⚠️ Format delpeserta:\n\ndelpeserta (nomor_atau_nama)\n\nContoh:\ndelpeserta 1\ndelpeserta Budi',
+    'command': '⚠️ Format command:\n\ncommand KEYWORD@(text)\n\nContoh:\ncommand RAB@RAB Open Trip Papandayan',
+    'setheader': '⚠️ Format setheader:\n\nsetheader@(text)\n\nContoh:\nsetheader@Laporan Keuangan Open Trip',
+    'remind': '⚠️ Format reminder:\n\nremind (time/date)@(text)\n\nContoh:\nremind 05:00@bangun subuh\nremind 17/08/2026@hari kemerdekaan',
+    'todo': '⚠️ Format todo:\n\ntodo tambah (text)\n\nContoh:\ntodo tambah revisi skripsi',
+    'doto': '⚠️ Format doto:\n\ndoto (no)\n\nContoh:\ndoto 1'
+  };
+  return helpers[cmd.toLowerCase()] || null;
+}
+
 function isAdmin(participantsMeta, senderId) {
   const sender = normalizeJid(senderId);
   const p = participantsMeta.find((x) => normalizeJid(x.id) === sender);
@@ -170,7 +187,8 @@ async function start() {
       }
       const canAdminManage = senderIsOwner || senderIsAdmin;
 
-      const userAllowed = /^listpeserta(?:\s+\d+)?$/i.test(text)
+      const userAllowed = /^(menu|help)$/i.test(text)
+        || /^listpeserta(?:\s+\d+)?$/i.test(text)
         || /^\d+$/.test(text)
         || /^riwayat(\s+.*)?$/i.test(text)
         || /^(tambah|kurang|kali|bagi)(\s|$)/i.test(text)
@@ -178,13 +196,19 @@ async function start() {
         || /^todolist$/i.test(text)
         || /^todo\s+lihat$/i.test(text);
 
-      const adminCommands = /^(menu|help|[+-]|inputtransaksi|saldo(\s|$)|edit\s+\d+|hapus\s+\d+|detail\s+\d+|addpeserta\s*|delpeserta\s*|updatepeserta\s*|setheader\s*|command\s*|delcommand\s*|listcommand$|detailcommand\s+|remind\s*|listremind$|noremind\s*|todo\s*|doto\s*|lokweather\s*|clearall\s*)/i.test(text);
+      const adminCommands = /^(menu|help|[+-]|inputtransaksi|saldo(\s|$)|edit\s*|hapus\s*|detail\s*|addpeserta\s*|delpeserta\s*|updatepeserta\s*|setheader\s*|command\s*|delcommand\s*|listcommand$|detailcommand\s+|remind\s*|listremind$|noremind\s*|todo\s*|doto\s*|lokweather\s*|clearall\s*)/i.test(text);
       if (!canAdminManage && adminCommands && !userAllowed) {
         await sock.sendMessage(groupId, { text: '❌ Anda tidak memiliki akses untuk perintah ini.' }, { quoted: msg });
         return;
       }
 
       const ctx = { text, groupId, senderId, senderName, location };
+
+      const formatHelperMsg = sendFormatHelper(text.trim().toLowerCase());
+      if (formatHelperMsg) {
+        await sock.sendMessage(groupId, { text: formatHelperMsg }, { quoted: msg });
+        return;
+      }
 
       if (/^(\+|-|inputtransaksi)$/i.test(text)) {
         await sock.sendMessage(groupId, { text: finance.formatTransactionHelp() }, { quoted: msg });

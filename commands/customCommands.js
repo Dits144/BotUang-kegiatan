@@ -13,9 +13,6 @@ function normalizeKeyword(keyword = '') {
 
 async function handleSaveCommand(ctx, canManage) {
   const raw = ctx.text.trim();
-  if (raw.toLowerCase() === 'command') {
-    return ['⚠️ Format yang benar:', 'command KEYWORD@(output)', '', 'Contoh:', 'command RAB@RAB Open Trip Papandayan'].join('\n');
-  }
   if (!/^command\s+/i.test(raw)) return null;
   if (!canManage) return '❌ Anda tidak memiliki akses untuk perintah ini.';
 
@@ -60,9 +57,6 @@ function handleListCommand(ctx) {
 
 function handleDeleteCommand(ctx, canManage) {
   const raw = ctx.text.trim();
-  if (raw.toLowerCase() === 'delcommand') {
-    return ['⚠️ Format yang benar:', 'delcommand (keyword)', '', 'Contoh:', 'delcommand RAB'].join('\n');
-  }
   const m = raw.match(/^delcommand\s+(.+)$/i);
   if (!m) return null;
   if (!canManage) return '❌ Anda tidak memiliki akses untuk perintah ini.';
