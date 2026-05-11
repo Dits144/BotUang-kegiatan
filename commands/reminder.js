@@ -21,7 +21,8 @@ function parseRemind(raw) {
 
   if (/^\d{2}:\d{2}$/.test(when)) return { type: 'time', value: when, text };
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(when)) return { type: 'date', value: when, text };
-  return { error: 'Format waktu/tanggal salah. Pakai HH:mm atau DD/MM/YYYY.' };
+  if (/^\d{2}:\d{2}&\d{2}\/\d{2}\/\d{4}$/.test(when)) return { type: 'datetime', value: when, text };
+  return { error: 'Format waktu/tanggal salah. Pakai HH:mm atau DD/MM/YYYY atau HH:mm&DD/MM/YYYY.' };
 }
 
 function handleRemind(ctx, canManage) {
@@ -29,7 +30,7 @@ function handleRemind(ctx, canManage) {
   if (!canManage) return '❌ Anda tidak memiliki akses untuk perintah ini.';
 
   const parsed = parseRemind(ctx.text.trim());
-  if (!parsed || parsed.error) return '⚠️ Format salah\n\nGunakan:\nremind 05:00@pesan\nremind 17/08/2026@pesan';
+  if (!parsed || parsed.error) return '⚠️ Format salah\n\nGunakan:\nremind 05:00@pesan\nremind 17/08/2026@pesan\nremind 09:00&17/08/2026@pesan';
 
   db.prepare(`
     INSERT INTO reminders (group_id, remind_type, remind_value, remind_text, created_at, created_by)
@@ -83,10 +84,13 @@ async function processDueReminders(sock) {
 
   for (const r of rows) {
     const isDue = (r.remind_type === 'time' && r.remind_value === hhmm)
-      || (r.remind_type === 'date' && r.remind_value === ddmmyyyy);
+      || (r.remind_type === 'date' && r.remind_value === ddmmyyyy)
+      || (r.remind_type === 'datetime' && r.remind_value === `${hhmm}&${ddmmyyyy}`);
     if (!isDue) continue;
 
     const dispatchKey = r.remind_type === 'time'
+      ? `${r.id}:${ddmmyyyy}:${hhmm}`
+      : r.remind_type === 'datetime'
       ? `${r.id}:${ddmmyyyy}:${hhmm}`
       : `${r.id}:${ddmmyyyy}`;
 

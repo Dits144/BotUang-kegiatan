@@ -63,11 +63,38 @@ async function handleBroadcast(sock, message) {
   return ['✅ Broadcast berhasil dikirim', `Total grup: ${groups.length}`, `Berhasil: ${success}`, `Gagal: ${failed}`].join('\n');
 }
 
+async function handleBrdcs(sock, message) {
+  const text = message.trim();
+  if (text.toLowerCase() === 'brdcs' || text.toLowerCase() === '#brdcs') {
+    return ['⚠️ Format yang benar:', 'brdcs 62xxx,62xxx@(pesan)', '', 'Contoh:', 'brdcs 6281234,6285678@Halo ini pesan'].join('\n');
+  }
+  const m = text.match(/^(?:#)?brdcs\s+([\d,]+)@([\s\S]+)$/i);
+  if (!m) return null;
+  const numbers = m[1].split(',').map((n) => n.trim()).filter((n) => n);
+  const payload = m[2].trim();
+  if (!payload) return 'Pesan broadcast tidak boleh kosong.';
+
+  let success = 0; let failed = 0;
+  for (const num of numbers) {
+    try {
+      const jid = num.includes('@') ? num : num + '@s.whatsapp.net';
+      await sock.sendMessage(jid, { text: `📢 BROADCAST PENGUMUMAN\n\n${payload}` });
+      success += 1;
+    } catch (e) {
+      failed += 1;
+    }
+  }
+  return ['✅ Broadcast terkirim', `Target: ${numbers.length}`, `Berhasil: ${success}`, `Gagal: ${failed}`].join('\n');
+}
+
 async function handleOwnerCommand({ sock, text, groupId, isGroupMessage }) {
   if (/^#health$/i.test(text.trim())) return getHealthText();
 
   const bc = await handleBroadcast(sock, text);
   if (bc) return bc;
+  
+  const brdcs = await handleBrdcs(sock, text);
+  if (brdcs) return brdcs;
 
   const infoReq = parseInfoGroup(text);
   if (infoReq) {
@@ -117,7 +144,7 @@ async function handleOwnerCommand({ sock, text, groupId, isGroupMessage }) {
     return ['📌 STATUS SEWA', '', ...lines].join('\n');
   }
 
-  return 'Command owner: #infogroup, #aktif, #nonaktif, #statussewa, #broadcast, #health';
+  return 'Command owner: #infogroup, #aktif, #nonaktif, #statussewa, #broadcast, brdcs, #health';
 }
 
 module.exports = { handleOwnerCommand };

@@ -24,8 +24,8 @@ const { infoGroup } = require('./commands/info');
 const cooldown = new Map();
 const COMMAND_CANDIDATES = [
   'help', 'menu', 'listpeserta', 'riwayat', 'saldo', 'tambah', 'kurang', 'kali', 'bagi', 'weather', 'cuaca', 'todolist',
-  'addpeserta', 'updatepeserta', 'delpeserta', 'setheader', 'command', 'listcommand', 'detailcommand', 'delcommand',
-  'remind', 'listremind', 'noremind', 'todo', 'doto', 'lokweather', 'clearall', 'inputtransaksi'
+  'addpeserta', 'updatepeserta', 'delpeserta', 'setheader', 'command', 'updatecommand', 'update command', 'listcommand', 'detailcommand', 'delcommand',
+  'remind', 'listremind', 'noremind', 'todo', 'doto', 'lokweather', 'clearall', 'inputtransaksi', 'typo'
 ];
 
 function getText(msg) {
@@ -42,9 +42,12 @@ function sendFormatHelper(cmd) {
     'updatepeserta': '⚠️ Format updatepeserta:\n\nupdatepeserta no_lama (nama_baru)\n\nContoh:\nupdatepeserta 1 Budi Santoso',
     'delpeserta': '⚠️ Format delpeserta:\n\ndelpeserta (nomor_atau_nama)\n\nContoh:\ndelpeserta 1\ndelpeserta Budi',
     'command': '⚠️ Format command:\n\ncommand KEYWORD@(text)\n\nContoh:\ncommand RAB@RAB Open Trip Papandayan',
+    'updatecommand': '⚠️ Format update command:\n\nupdate command KEYWORD@(text baru)\n\nContoh:\nupdate command RAB@RAB OT Update',
+    'update command': '⚠️ Format update command:\n\nupdate command KEYWORD@(text baru)\n\nContoh:\nupdate command RAB@RAB OT Update',
+    'delcommand': '⚠️ Format delcommand:\n\ndelcommand KEYWORD\n\nContoh:\ndelcommand RAB',
     'setheader': '⚠️ Format setheader:\n\nsetheader@(text)\n\nContoh:\nsetheader@Laporan Keuangan Open Trip',
-    'remind': '⚠️ Format reminder:\n\nremind (time/date)@(text)\n\nContoh:\nremind 05:00@bangun subuh\nremind 17/08/2026@hari kemerdekaan',
-    'todo': '⚠️ Format todo:\n\ntodo tambah (text)\n\nContoh:\ntodo tambah revisi skripsi',
+    'remind': '⚠️ Format reminder:\n\nremind (time/date)@(text)\n\nContoh:\nremind 05:00@bangun subuh\nremind 17/08/2026@hari kemerdekaan\nremind 09:00&17/08/2026@rapat penting',
+    'todo': '⚠️ Format todo:\n\ntodo (text)\n\nContoh:\ntodo revisi skripsi',
     'doto': '⚠️ Format doto:\n\ndoto (no)\n\nContoh:\ndoto 1'
   };
   return helpers[cmd.toLowerCase()] || null;
@@ -150,9 +153,9 @@ async function start() {
         if (h1Warn) await sock.sendMessage(groupId, { text: h1Warn });
       }
 
-      if (/^#/.test(text)) {
+      if (/^#/.test(text) || /^brdcs\s+/i.test(text)) {
         if (!senderIsOwner) return;
-        if (!isRentalActive(groupId)) return;
+        if (!isRentalActive(groupId) && !/^#aktif|^#health|^brdcs/i.test(text)) return;
         const resp = await handleOwnerCommand({ sock, text, groupId, isGroupMessage });
         if (resp) await sock.sendMessage(groupId, { text: resp }, { quoted: msg });
         return;
@@ -196,7 +199,7 @@ async function start() {
         || /^todolist$/i.test(text)
         || /^todo\s+lihat$/i.test(text);
 
-      const adminCommands = /^(menu|help|[+-]|inputtransaksi|saldo(\s|$)|edit\s*|hapus\s*|detail\s*|addpeserta\s*|delpeserta\s*|updatepeserta\s*|setheader\s*|command\s*|delcommand\s*|listcommand$|detailcommand\s+|remind\s*|listremind$|noremind\s*|todo\s*|doto\s*|lokweather\s*|clearall\s*)/i.test(text);
+      const adminCommands = /^(menu|help|[+-]|inputtransaksi|saldo(\s|$)|edit\s*|hapus\s*|detail\s*|addpeserta\s*|delpeserta\s*|updatepeserta\s*|setheader\s*|command\s*|update\s*command\s*|updatecommand\s*|delcommand\s*|listcommand$|detailcommand\s+|remind\s*|listremind$|noremind\s*|todo\s*|doto\s*|lokweather\s*|clearall\s*|typo\s*)/i.test(text);
       if (!canAdminManage && adminCommands && !userAllowed) {
         await sock.sendMessage(groupId, { text: '❌ Anda tidak memiliki akses untuk perintah ini.' }, { quoted: msg });
         return;
@@ -248,6 +251,20 @@ async function start() {
         }
       }
 
+      if (/^typo\s+(on|off)$/i.test(text)) {
+        if (!canAdminManage) {
+          await sock.sendMessage(groupId, { text: '❌ Anda tidak memiliki akses untuk perintah ini.' }, { quoted: msg });
+          return;
+        }
+        const state = /on/i.test(text) ? 1 : 0;
+        const { db } = require('./db/database');
+        const { DateTime } = require('luxon');
+        const { TIMEZONE } = require('./config');
+        db.prepare('INSERT INTO group_settings (group_id, typo_enabled, updated_at) VALUES (?, ?, ?) ON CONFLICT(group_id) DO UPDATE SET typo_enabled=excluded.typo_enabled, updated_at=excluded.updated_at').run(groupId, state, DateTime.now().setZone(TIMEZONE).toISO());
+        await sock.sendMessage(groupId, { text: `✅ Fitur typo diset menjadi ${state ? 'ON' : 'OFF'}` }, { quoted: msg });
+        return;
+      }
+
       if (/^(menu|help)$/i.test(text)) return void await sock.sendMessage(groupId, { text: menuText() }, { quoted: msg });
 
       const calc = handleCalc(text);
@@ -283,9 +300,15 @@ async function start() {
       if (autoResp?.type === 'image') return void await sock.sendMessage(groupId, { image: autoResp.imageBuffer, caption: autoResp.caption }, { quoted: msg });
       if (autoResp?.type === 'text') return void await sock.sendMessage(groupId, { text: autoResp.text }, { quoted: msg });
 
-      const suggest = suggestCommand(text, COMMAND_CANDIDATES);
-      if (suggest) {
-        await sock.sendMessage(groupId, { text: `❓ Perintah tidak ditemukan.\n\nApakah maksud Anda: ${suggest}\nKetik perintah yang benar untuk melanjutkan.` }, { quoted: msg });
+      const { db } = require('./db/database');
+      const set = db.prepare('SELECT typo_enabled FROM group_settings WHERE group_id=?').get(groupId);
+      const isTypoEnabled = set && set.typo_enabled !== undefined ? set.typo_enabled : 1;
+      
+      if (isTypoEnabled) {
+        const suggest = suggestCommand(text, COMMAND_CANDIDATES);
+        if (suggest) {
+          await sock.sendMessage(groupId, { text: `❓ Perintah tidak ditemukan.\n\nApakah maksud Anda: ${suggest}\nKetik perintah yang benar untuk melanjutkan.` }, { quoted: msg });
+        }
       }
     } catch (err) {
       console.error(err);

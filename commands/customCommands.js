@@ -13,10 +13,10 @@ function normalizeKeyword(keyword = '') {
 
 async function handleSaveCommand(ctx, canManage) {
   const raw = ctx.text.trim();
-  if (!/^command\s+/i.test(raw)) return null;
+  if (!/^(command|update\s*command|updatecommand)\s+/i.test(raw)) return null;
   if (!canManage) return '❌ Anda tidak memiliki akses untuk perintah ini.';
 
-  const body = raw.replace(/^command\s+/i, '');
+  const body = raw.replace(/^(command|update\s*command|updatecommand)\s+/i, '');
   const at = body.indexOf('@');
   if (at <= 0 || at === body.length - 1) return 'Format salah. Contoh: command RAB@RAB OT Papandayan Dst';
 
