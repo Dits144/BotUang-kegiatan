@@ -120,6 +120,7 @@ ensureColumn('custom_commands', 'media_path', 'media_path TEXT');
 ensureColumn('custom_commands', 'media_type', 'media_type TEXT');
 ensureColumn('custom_commands', 'caption_text', 'caption_text TEXT');
 ensureColumn('group_settings', 'header_text', 'header_text TEXT');
+ensureColumn('group_settings', 'typo_enabled', 'typo_enabled INTEGER NOT NULL DEFAULT 1');
 ensureColumn('reminders', 'created_by', 'created_by TEXT');
 ensureColumn('group_rentals', 'last_h1_warning_at', 'last_h1_warning_at TEXT');
 
