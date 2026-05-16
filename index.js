@@ -16,7 +16,7 @@ const reminder = require('./commands/reminder');
 const todo = require('./commands/todo');
 const weather = require('./commands/weather');
 const { handleOwnerCommand } = require('./commands/owner');
-const { isRentalActive, shouldWarnExpiring } = require('./commands/rental');
+const { isRentalActive, shouldWarnExpiring, handleCekSewa } = require('./commands/rental');
 const { suggestCommand } = require('./utils/typo');
 const { handleClearAll } = require('./commands/adminTools');
 const { infoGroup } = require('./commands/info');
@@ -108,11 +108,33 @@ async function extractCommandMedia(msg, text) {
   return null;
 }
 
+/* ─── H-1 Rental Warning Scheduler (runs every hour) ─── */
+function startRentalWarningScheduler(sock) {
+  async function checkAllGroups() {
+    const { db } = require('./db/database');
+    const groups = db.prepare('SELECT group_id FROM group_rentals WHERE is_active=1').all();
+    for (const g of groups) {
+      try {
+        const warn = shouldWarnExpiring(g.group_id);
+        if (warn) await sock.sendMessage(g.group_id, { text: warn });
+      } catch (e) {
+        console.error('[RentalWarn] Error for', g.group_id, e.message);
+      }
+    }
+  }
+  // Run every 30 minutes
+  setInterval(() => checkAllGroups().catch(console.error), 30 * 60 * 1000);
+  // Also run shortly after startup
+  setTimeout(() => checkAllGroups().catch(console.error), 5000);
+  console.log('[RentalWarn] Scheduler started (every 30 min)');
+}
+
 async function start() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
   const sock = makeWASocket({ version, auth: state, printQRInTerminal: true, logger: pino({ level: LOG_LEVEL }) });
   reminder.startReminderWorker(sock);
+  startRentalWarningScheduler(sock);
 
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
@@ -147,11 +169,6 @@ async function start() {
 
     try {
       const senderIsOwner = isSenderOwner(senderId);
-
-      if (isGroupMessage) {
-        const h1Warn = shouldWarnExpiring(groupId);
-        if (h1Warn) await sock.sendMessage(groupId, { text: h1Warn });
-      }
 
       if (/^#/.test(text) || /^brdcs\s+/i.test(text)) {
         if (!senderIsOwner) return;
@@ -190,6 +207,9 @@ async function start() {
       }
       const canAdminManage = senderIsOwner || senderIsAdmin;
 
+      // Determine role for help menu
+      const userRole = senderIsOwner ? 'owner' : senderIsAdmin ? 'admin' : 'user';
+
       const userAllowed = /^(menu|help)$/i.test(text)
         || /^listpeserta(?:\s+\d+)?$/i.test(text)
         || /^\d+$/.test(text)
@@ -199,13 +219,13 @@ async function start() {
         || /^todolist$/i.test(text)
         || /^todo\s+lihat$/i.test(text);
 
-      const adminCommands = /^(menu|help|[+-]|inputtransaksi|saldo(\s|$)|edit\s*|hapus\s*|detail\s*|addpeserta\s*|delpeserta\s*|updatepeserta\s*|setheader\s*|command\s*|update\s*command\s*|updatecommand\s*|delcommand\s*|listcommand$|detailcommand\s+|remind\s*|listremind$|noremind\s*|todo\s*|doto\s*|lokweather\s*|clearall\s*|typo\s*)/i.test(text);
+      const adminCommands = /^(menu|help|[+-]|inputtransaksi|saldo(\s|$)|edit\s*|hapus\s*|detail\s*|addpeserta\s*|delpeserta\s*|updatepeserta\s*|setheader\s*|command\s*|update\s*command\s*|updatecommand\s*|delcommand\s*|listcommand$|detailcommand\s+|remind\s*|listremind$|noremind\s*|todo\s*|doto\s*|lokweather\s*|clearall\s*|typo\s*|ceksewa$)/i.test(text);
       if (!canAdminManage && adminCommands && !userAllowed) {
         await sock.sendMessage(groupId, { text: '❌ Anda tidak memiliki akses untuk perintah ini.' }, { quoted: msg });
         return;
       }
 
-      const ctx = { text, groupId, senderId, senderName, location };
+      const ctx = { text, groupId, senderId, senderName, location, userRole };
 
       const formatHelperMsg = sendFormatHelper(text.trim().toLowerCase());
       if (formatHelperMsg) {
@@ -240,7 +260,8 @@ async function start() {
         () => reminder.handleNoRemind(ctx, canAdminManage),
         () => todo.handleTodo(ctx, canAdminManage),
         () => weather.handleSetLocation(ctx, canAdminManage),
-        () => weather.handleWeather(ctx)
+        () => weather.handleWeather(ctx),
+        () => handleCekSewa(ctx)
       ];
 
       for (const fn of handlers) {
@@ -265,7 +286,7 @@ async function start() {
         return;
       }
 
-      if (/^(menu|help)$/i.test(text)) return void await sock.sendMessage(groupId, { text: menuText() }, { quoted: msg });
+      if (/^(menu|help)$/i.test(text)) return void await sock.sendMessage(groupId, { text: menuText(userRole) }, { quoted: msg });
 
       const calc = handleCalc(text);
       if (calc) return void await sock.sendMessage(groupId, { text: calc }, { quoted: msg });
