@@ -88,6 +88,10 @@ async function recordTransaction(ctx) {
     sender_name: ctx.senderName,
     created_at: DateTime.now().setZone(TIMEZONE).toISO()
   });
+
+  const { syncTransaction } = require('../utils/lovableApi');
+  syncTransaction(ctx.groupId, parsed.type === 'income' ? 'in' : 'out', parsed.amount, parsed.note).catch(err => console.error(err));
+
   return `✅ Tercatat: ${parsed.type === 'income' ? '+' : '-'}${formatRupiah(parsed.amount)} (${parsed.note})`;
 }
 

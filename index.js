@@ -139,6 +139,10 @@ async function start() {
   startRentalWarningScheduler(sock);
   startApi(sock);
 
+  const { sendHeartbeat } = require('./utils/lovableApi');
+  setInterval(() => sendHeartbeat(true).catch(() => {}), 60000); // 1 menit
+  sendHeartbeat(true).catch(() => {});
+
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
     if (qr) {
@@ -209,6 +213,21 @@ async function start() {
         senderIsAdmin = isAdmin(meta.participants, senderId);
       }
       const canAdminManage = senderIsOwner || senderIsAdmin;
+
+      if (text.trim() === '.login') {
+        if (!canAdminManage) {
+          await sock.sendMessage(groupId, { text: '❌ Anda tidak memiliki akses untuk perintah ini.' }, { quoted: msg });
+          return;
+        }
+        const { createMagicLink } = require('./utils/lovableApi');
+        const linkRes = await createMagicLink(groupId);
+        if (linkRes && linkRes.message) {
+          await sock.sendMessage(groupId, { text: linkRes.message }, { quoted: msg });
+        } else {
+          await sock.sendMessage(groupId, { text: '❌ Gagal membuat link login. Cek API Key Anda.' }, { quoted: msg });
+        }
+        return;
+      }
 
       // Determine role for help menu
       const userRole = senderIsOwner ? 'owner' : senderIsAdmin ? 'admin' : 'user';

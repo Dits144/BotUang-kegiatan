@@ -14,5 +14,7 @@ module.exports = {
   AUTH_DIR: process.env.AUTH_DIR || 'auth_info_baileys',
   DB_PATH: process.env.DB_PATH || './db/finance.sqlite',
   LOG_LEVEL: process.env.LOG_LEVEL || 'silent',
-  CLAIM_OWNER_CODE: process.env.CLAIM_OWNER_CODE || 'Ditsanalah144'
+  CLAIM_OWNER_CODE: process.env.CLAIM_OWNER_CODE || 'Ditsanalah144',
+  LOVABLE_API_URL: process.env.LOVABLE_API_URL || 'https://wabot-dashboard.lovable.app',
+  LOVABLE_API_KEY: process.env.LOVABLE_API_KEY || ''
 };

@@ -116,6 +116,10 @@ async function handleOwnerCommand({ sock, text, groupId, isGroupMessage }) {
     if (!aktif.groupId.endsWith('@g.us') || aktif.days <= 0) return 'Format: #aktif 1203xxxx@g.us 30';
     const updated = extendRental(aktif.groupId, aktif.days, 'owner');
     const meta = await fetchGroupMeta(sock, aktif.groupId);
+
+    const { syncGroup } = require('../utils/lovableApi');
+    syncGroup(aktif.groupId, meta?.subject || aktif.groupId).catch(err => console.error(err));
+
     return ['✅ Grup berhasil diaktifkan', '', `Nama: ${meta?.subject || aktif.groupId}`, `Expired: ${formatWib(updated.expire_at)} WIB`, `Durasi: ${aktif.days} hari`].join('\n');
   }
 
