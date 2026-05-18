@@ -8,6 +8,11 @@ function startApi(sock) {
   app.use(cors());
   app.use(express.json());
 
+  // Root path to test connection
+  app.get('/', (req, res) => {
+    res.send('✅ Bot API is running perfectly!');
+  });
+
   // Check bot status
   app.get('/api/status', (req, res) => {
     if (sock && sock.user) {
