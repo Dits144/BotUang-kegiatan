@@ -20,6 +20,8 @@ const { isRentalActive, shouldWarnExpiring, handleCekSewa } = require('./command
 const { suggestCommand } = require('./utils/typo');
 const { handleClearAll } = require('./commands/adminTools');
 const { infoGroup } = require('./commands/info');
+const { startApi } = require('./api');
+
 
 const cooldown = new Map();
 const COMMAND_CANDIDATES = [
@@ -135,6 +137,7 @@ async function start() {
   const sock = makeWASocket({ version, auth: state, printQRInTerminal: true, logger: pino({ level: LOG_LEVEL }) });
   reminder.startReminderWorker(sock);
   startRentalWarningScheduler(sock);
+  startApi(sock);
 
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
