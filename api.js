@@ -331,7 +331,7 @@ function startApi(sock) {
     db.prepare('UPDATE dashboard_tokens SET pin_verified = 1 WHERE token = ?').run(cleanToken);
 
     // Redirect to Lovable dashboard
-    const WEB_URL = process.env.LOVABLE_API_URL || 'https://www.dashboardits.tech';
+    const WEB_URL = process.env.LOVABLE_API_URL || 'https://dashboardits.tech';
     const botApiUrl = process.env.VITE_BOT_API_URL || process.env.BOT_API_URL || '';
     
     // Find dynamic cloudflare url
