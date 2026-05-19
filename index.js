@@ -264,7 +264,8 @@ async function start() {
         
         // Gunakan URL Web Lovable
         const WEB_URL = process.env.LOVABLE_API_URL || 'https://wabot-dashboard.lovable.app';
-        const link = `${WEB_URL}/connect?group_id=${groupId}&token=${token}`;
+        const botApiUrl = process.env.VITE_BOT_API_URL || process.env.BOT_API_URL || '';
+        const link = `${WEB_URL}/connect?group_id=${groupId}&token=${token}${botApiUrl ? `&apiUrl=${encodeURIComponent(botApiUrl)}` : ''}`;
         
         await sock.sendMessage(groupId, { text: `🔐 *Akses Web Dashboard*\n\nKlik link di bawah ini untuk mengelola grup Anda (berlaku 15 menit):\n\n${link}` }, { quoted: msg });
         return;
