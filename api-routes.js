@@ -11,15 +11,24 @@ function nowIso() {
 }
 
 // --- AUTH / CONNECT ---
-router.post('/connect/validate', (req, res) => {
-  const { group_id, token } = req.body;
-  if (!group_id || !token) return res.status(400).json({ success: false, error: 'Missing group_id or token' });
+router.post('/groups/:groupId/connect/validate', (req, res) => {
+  const groupId = req.params.groupId;
+  const { token } = req.body;
+  if (!groupId || !token) return res.status(400).json({ success: false, error: 'Missing groupId or token' });
 
-  const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND datetime(expires_at) > datetime(?)').get(token, group_id, nowIso());
+  const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND datetime(expires_at) > datetime(?)').get(token, groupId, nowIso());
   
   if (!validToken) return res.status(401).json({ success: false, error: 'Token invalid or expired' });
   
-  res.json({ success: true, message: 'Valid token' });
+  const rental = db.prepare('SELECT * FROM group_rentals WHERE group_id = ?').get(groupId);
+  
+  res.json({ 
+    valid: true, 
+    group: { 
+      id: groupId, 
+      name: rental ? 'Grup Keuangan' : 'Grup WhatsApp'
+    } 
+  });
 });
 
 // --- OWNER DATA ---

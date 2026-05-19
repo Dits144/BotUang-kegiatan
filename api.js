@@ -10,16 +10,53 @@ function startApi(sock) {
 
   // Authentication middleware
   app.use((req, res, next) => {
-    // Abaikan auth untuk path tertentu jika perlu
-    if (req.path === '/') return next();
+    // 1. Bypass auth for root and connect validation endpoints
+    if (
+      req.path === '/' || 
+      req.path === '/api' || 
+      req.path === '/api/' || 
+      req.path.endsWith('/connect/validate')
+    ) {
+      return next();
+    }
     
     const authHeader = req.headers.authorization;
-    const apiKey = process.env.LOVABLE_API_KEY;
-    
-    if (apiKey && (!authHeader || authHeader !== `Bearer ${apiKey}`)) {
-      return res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized: Missing or invalid token format' });
     }
-    next();
+    
+    const token = authHeader.substring(7);
+    const apiKey = process.env.LOVABLE_API_KEY || 'KunciRahasiaBotUangSaya12345';
+    
+    // 2. Allow if global API Key matches
+    if (token === apiKey) {
+      return next();
+    }
+    
+    // 3. Allow if it is a valid, non-expired temporary session token for this group
+    let groupId = req.headers['x-group-id'];
+    if (!groupId) {
+      const match = req.path.match(/\/api\/groups\/([^/]+)/);
+      if (match) {
+        groupId = decodeURIComponent(match[1]);
+      }
+    }
+    
+    if (groupId) {
+      const { db } = require('./db/database');
+      const { DateTime } = require('luxon');
+      const { TIMEZONE } = require('./config');
+      const nowIso = DateTime.now().setZone(TIMEZONE).toISO();
+      
+      const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND datetime(expires_at) > datetime(?)')
+        .get(token, groupId, nowIso);
+        
+      if (validToken) {
+        return next();
+      }
+    }
+    
+    return res.status(401).json({ error: 'Unauthorized: Invalid API Key or session token' });
   });
 
   // Root path to test connection
