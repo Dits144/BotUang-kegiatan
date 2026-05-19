@@ -235,11 +235,6 @@ async function start() {
         return;
       }
 
-      let senderIsAdmin = false;
-      if (isGroupMessage) {
-        const meta = await sock.groupMetadata(groupId);
-        senderIsAdmin = isAdmin(meta.participants, senderId);
-      }
       const canAdminManage = senderIsOwner || senderIsAdmin;
 
       if (text.trim().toLowerCase() === 'dashboard') {
