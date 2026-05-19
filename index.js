@@ -65,12 +65,6 @@ function isSenderOwner(senderJid) {
   return isOwner(senderJid, [...OWNER_NUMBERS, ...getOwnerNumbers()]);
 }
 
-function parseAddSewaDays(text) {
-  const m = String(text || '').trim().match(/^addsewa\s+(\d+)$/i);
-  if (!m) return null;
-  return Number(m[1]);
-}
-
 function inCooldown(senderId, key, ms = 1000) {
   const now = Date.now();
   const cacheKey = `${senderId}::${key}`;
@@ -230,20 +224,6 @@ async function start() {
           return;
         }
 
-        if (/^addsewa$/i.test(text)) {
-          if (!senderIsOwner) return;
-          await sock.sendMessage(groupId, { text: '⚠️ Format yang benar:\naddsewa (hari)\n\nContoh:\naddsewa 30' }, { quoted: msg });
-          return;
-        }
-
-        const days = parseAddSewaDays(text);
-        if (days) {
-          if (!senderIsOwner) return;
-          const resp = await handleOwnerCommand({ sock, text: `#aktif ${groupId} ${days}`, groupId, isGroupMessage: true });
-          if (resp) await sock.sendMessage(groupId, { text: resp }, { quoted: msg });
-          return;
-        }
-        
         if (/^(menu|help)$/i.test(text)) {
           if (!senderIsOwner) return; // Abaikan untuk selain owner jika expired
           const { menuText } = require('./commands/help');

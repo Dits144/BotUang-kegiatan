@@ -65,7 +65,6 @@ const OWNER_SECTION = [
   '━━━━━━━━━━━━━━━━━━',
   '🔑 *MENU OWNER* 🔑',
   '━━━━━━━━━━━━━━━━━━',
-  '➕ addsewa (hari)       - aktifkan sewa grup ini',
   'ℹ️ #infogroup (idgrup)',
   '✅ #aktif (idgrup) (hari)',
   '⛔ #nonaktif (idgrup)',
