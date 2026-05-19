@@ -33,10 +33,16 @@ function parseNoCommand(text, cmd) {
   return Number.parseInt(m[1], 10);
 }
 
-function parseOwnerActivate(text) {
-  const m = String(text || '').trim().match(/^#aktif\s+(\S+)\s+(\d+)$/i);
-  if (!m) return null;
-  return { groupId: m[1], days: Number.parseInt(m[2], 10) };
+function parseOwnerActivate(text, currentGroupId) {
+  // Format: #aktif 120363xxx@g.us 3
+  let m = String(text || '').trim().match(/^#aktif\s+([^\s]+@g\.us)\s+(\d+)$/i);
+  if (m) return { groupId: m[1], days: Number.parseInt(m[2], 10) };
+  
+  // Format: #aktif 3 (inside group)
+  m = String(text || '').trim().match(/^#aktif\s+(\d+)$/i);
+  if (m && currentGroupId) return { groupId: currentGroupId, days: Number.parseInt(m[1], 10) };
+  
+  return null;
 }
 
 function parseOwnerDeactivate(text) {

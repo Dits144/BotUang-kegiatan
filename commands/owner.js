@@ -109,9 +109,9 @@ async function handleOwnerCommand({ sock, text, groupId, isGroupMessage }) {
   }
 
   if (text.trim().toLowerCase() === '#aktif') {
-    return ['⚠️ Format yang benar:', '#aktif (idgrup) (hari)', '', 'Contoh:', '#aktif 120363xxxx@g.us 30'].join('\n');
+    return ['⚠️ Format yang benar:', '#aktif (idgrup) (hari) ATAU #aktif (hari)', '', 'Contoh:', '#aktif 30'].join('\n');
   }
-  const aktif = parseOwnerActivate(text);
+  const aktif = parseOwnerActivate(text, isGroupMessage ? groupId : null);
   if (aktif) {
     if (!aktif.groupId.endsWith('@g.us') || aktif.days <= 0) return 'Format: #aktif 1203xxxx@g.us 30';
     const updated = extendRental(aktif.groupId, aktif.days, 'owner');
