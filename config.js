@@ -4,7 +4,7 @@ const OWNER_NUMBERS = (process.env.OWNER_NUMBERS
   ? process.env.OWNER_NUMBERS.split(',').map((v) => v.trim()).filter(Boolean)
   : [
       '6285882846665@s.whatsapp.net',
-      '6282120196167@s.whatsapp.net'
+      '6283230296267@s.whatsapp.net'
     ]);
 
 module.exports = {

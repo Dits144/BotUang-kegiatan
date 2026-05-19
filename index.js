@@ -208,6 +208,21 @@ async function start() {
         return;
       }
 
+      let senderIsAdmin = false;
+      if (isGroupMessage) {
+        const meta = await sock.groupMetadata(groupId);
+        senderIsAdmin = isAdmin(meta.participants, senderId);
+      }
+
+      if (/^myrole$/i.test(text) || /^\.myrole$/i.test(text)) {
+        let role = 'User biasa';
+        if (senderIsOwner) role = '👑 *Owner Bot*';
+        else if (senderIsAdmin) role = '👮 *Admin Grup*';
+        
+        await sock.sendMessage(groupId, { text: `Halo ${senderName},\nRole Anda saat ini adalah: ${role}` }, { quoted: msg });
+        return;
+      }
+
       if (!isRentalActive(groupId)) {
         if (/^info$/i.test(text)) {
           const info = await infoGroup(sock, groupId);
