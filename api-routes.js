@@ -31,42 +31,47 @@ router.post('/groups/:groupId/connect/validate', (req, res) => {
   });
 });
 
-// --- OWNER DATA ---
-router.get('/owner/groups', (req, res) => {
+// --- OWNER / GLOBAL GROUPS ---
+router.get('/groups', (req, res) => {
   const rentals = db.prepare('SELECT * FROM group_rentals').all();
-  res.json({ success: true, data: rentals });
+  const groups = rentals.map(r => ({
+    id: r.group_id,
+    name: 'Grup Keuangan',
+    status: r.is_active ? 'active' : 'inactive',
+    expired_at: r.expire_at
+  }));
+  res.json(groups);
 });
 
 // --- GROUP DASHBOARD DATA ---
 router.get('/groups/:groupId', (req, res) => {
   const groupId = req.params.groupId;
   const rental = db.prepare('SELECT * FROM group_rentals WHERE group_id = ?').get(groupId);
-  if (!rental) return res.status(404).json({ success: false, error: 'Group not found' });
-  res.json({ success: true, data: rental });
-});
-
-router.get('/groups/:groupId/summary', (req, res) => {
-  const groupId = req.params.groupId;
+  if (!rental) return res.status(404).json({ error: 'Group not found' });
+  
+  // Calculate balance
   const income = db.prepare(`SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE group_id=? AND type='income' AND deleted_at IS NULL`).get(groupId).total;
   const expense = db.prepare(`SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE group_id=? AND type='expense' AND deleted_at IS NULL`).get(groupId).total;
-  const participantCount = db.prepare(`SELECT COUNT(*) as c FROM participants WHERE group_id=? AND deleted_at IS NULL`).get(groupId).c;
-  const reminderCount = db.prepare(`SELECT COUNT(*) as c FROM reminders WHERE group_id=? AND deleted_at IS NULL`).get(groupId).c;
-  
+
   res.json({
-    success: true,
-    data: {
-      balance: income - expense,
-      total_income: income,
-      total_expense: expense,
-      participants: participantCount,
-      reminders: reminderCount
-    }
+    id: rental.group_id,
+    name: 'Grup Keuangan',
+    status: rental.is_active ? 'active' : 'inactive',
+    expired_at: rental.expire_at,
+    balance: income - expense
   });
 });
 
 router.get('/groups/:groupId/settings', (req, res) => {
   const row = db.prepare('SELECT * FROM group_settings WHERE group_id=?').get(req.params.groupId);
-  res.json({ success: true, data: row || {} });
+  const rental = db.prepare('SELECT * FROM group_rentals WHERE group_id=?').get(req.params.groupId);
+  
+  res.json({
+    weather_location: row?.weather_location || '',
+    participants_header: row?.header_text || '',
+    rental_status: rental?.is_active ? 'active' : 'inactive',
+    timezone: TIMEZONE
+  });
 });
 
 router.put('/groups/:groupId/settings', (req, res) => {
@@ -81,14 +86,21 @@ router.put('/groups/:groupId/settings', (req, res) => {
       weather_location=excluded.weather_location,
       typo_enabled=excluded.typo_enabled,
       updated_at=excluded.updated_at
-  `).run(groupId, header_text, weather_location, typo_enabled, nowIso());
+  `).run(groupId, header_text, weather_location, typo_enabled ? 1 : 0, nowIso());
   
   res.json({ success: true, message: 'Settings updated' });
 });
 
 router.get('/groups/:groupId/transactions', (req, res) => {
   const rows = db.prepare('SELECT * FROM transactions WHERE group_id=? AND deleted_at IS NULL ORDER BY datetime(created_at) DESC').all(req.params.groupId);
-  res.json({ success: true, data: rows });
+  const txs = rows.map(r => ({
+    id: String(r.id),
+    type: r.type,
+    amount: r.amount,
+    note: r.note,
+    date: r.created_at
+  }));
+  res.json(txs);
 });
 
 router.post('/groups/:groupId/transactions', (req, res) => {
@@ -106,17 +118,39 @@ router.delete('/groups/:groupId/transactions/:id', (req, res) => {
 
 router.get('/groups/:groupId/participants', (req, res) => {
   const rows = db.prepare('SELECT * FROM participants WHERE group_id=? AND deleted_at IS NULL ORDER BY created_at ASC').all(req.params.groupId);
-  res.json({ success: true, data: rows });
+  const participants = rows.map(r => {
+    let parsedData = {};
+    try { parsedData = JSON.parse(r.data); } catch(e){}
+    return {
+      id: String(r.id),
+      name: r.name,
+      phone: parsedData.phone || '',
+      note: parsedData.note || ''
+    };
+  });
+  res.json(participants);
 });
 
 router.get('/groups/:groupId/commands', (req, res) => {
   const rows = db.prepare('SELECT * FROM custom_commands WHERE group_id=? AND deleted_at IS NULL ORDER BY created_at ASC').all(req.params.groupId);
-  res.json({ success: true, data: rows });
+  const commands = rows.map(r => ({
+    id: String(r.id),
+    keyword: r.keyword,
+    response: r.response,
+    image_url: r.media_path
+  }));
+  res.json(commands);
 });
 
 router.get('/groups/:groupId/reminders', (req, res) => {
   const rows = db.prepare('SELECT * FROM reminders WHERE group_id=? AND deleted_at IS NULL ORDER BY created_at ASC').all(req.params.groupId);
-  res.json({ success: true, data: rows });
+  const reminders = rows.map(r => ({
+    id: String(r.id),
+    message: r.remind_text,
+    schedule: `${r.remind_type} ${r.remind_value}`,
+    timezone: TIMEZONE
+  }));
+  res.json(reminders);
 });
 
 router.post('/groups/:groupId/reminders', (req, res) => {
@@ -134,7 +168,12 @@ router.delete('/groups/:groupId/reminders/:id', (req, res) => {
 
 router.get('/groups/:groupId/todos', (req, res) => {
   const rows = db.prepare('SELECT * FROM todos WHERE group_id=? AND deleted_at IS NULL ORDER BY created_at ASC').all(req.params.groupId);
-  res.json({ success: true, data: rows });
+  const todos = rows.map(r => ({
+    id: String(r.id),
+    title: r.todo_text,
+    done: Boolean(r.is_done)
+  }));
+  res.json(todos);
 });
 
 module.exports = router;
