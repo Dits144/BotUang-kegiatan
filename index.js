@@ -287,8 +287,9 @@ async function start() {
           }
         }
         
-        // Tautan diarahkan ke verifikasi PIN di API bot lokal/tunnel terlebih dahulu untuk mencegah bypass login
-        const link = `${botApiUrl || 'http://localhost:3005'}/connect?group_id=${encodeURIComponent(groupId)}&token=${encodeURIComponent(token)}`;
+        // Tautan diarahkan ke domain resmi dashboardits.tech dengan menyertakan apiUrl agar terpercaya
+        const webUrl = require('./config').LOVABLE_API_URL || 'https://dashboardits.tech';
+        const link = `${webUrl}/connect?group_id=${encodeURIComponent(groupId)}&token=${encodeURIComponent(token)}${botApiUrl ? `&apiUrl=${encodeURIComponent(botApiUrl)}` : ''}`;
         
         await sock.sendMessage(groupId, { text: `🔐 *Akses Web Dashboard*\n\nKlik link di bawah ini untuk mengelola grup Anda (berlaku 15 menit):\n\n${link}` }, { quoted: msg });
         return;
