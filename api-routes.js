@@ -13,22 +13,57 @@ function nowIso() {
 // --- AUTH / CONNECT ---
 router.post('/groups/:groupId/connect/validate', (req, res) => {
   const groupId = req.params.groupId;
-  const { token } = req.body;
+  const { token, password } = req.body;
   if (!groupId || !token) return res.status(400).json({ success: false, error: 'Missing groupId or token' });
 
-  const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND pin_verified = 1 AND datetime(expires_at) > datetime(?)').get(token, groupId, nowIso());
+  const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND datetime(expires_at) > datetime(?)').get(token, groupId, nowIso());
   
-  if (!validToken) return res.status(401).json({ success: false, error: 'Token invalid, expired, or PIN not verified' });
+  if (!validToken) {
+    return res.status(401).json({ success: false, error: 'Token akses tidak valid atau sudah kadaluarsa. Silakan ketik "dashboard" lagi di WhatsApp.' });
+  }
 
-  
   const rental = db.prepare('SELECT * FROM group_rentals WHERE group_id = ?').get(groupId);
-  
-  res.json({ 
-    valid: true, 
-    group: { 
-      id: groupId, 
-      name: rental ? 'Grup Keuangan' : 'Grup WhatsApp'
-    } 
+  const hasPassword = !!(rental && rental.password);
+
+  if (validToken.pin_verified === 1) {
+    return res.json({ 
+      valid: true, 
+      group: { 
+        id: groupId, 
+        name: rental ? 'Grup Keuangan' : 'Grup WhatsApp'
+      } 
+    });
+  }
+
+  // Token is valid but PIN is not verified yet
+  if (password) {
+    if (!hasPassword) {
+      // Set new password
+      db.prepare('UPDATE group_rentals SET password = ? WHERE group_id = ?').run(password, groupId);
+    } else {
+      // Verify existing password
+      if (rental.password !== password) {
+        return res.status(401).json({ success: false, error: 'PIN / Password salah! Silakan coba lagi.' });
+      }
+    }
+
+    // Mark token as verified
+    db.prepare('UPDATE dashboard_tokens SET pin_verified = 1 WHERE token = ?').run(token);
+
+    return res.json({
+      valid: true,
+      group: { 
+        id: groupId, 
+        name: rental ? 'Grup Keuangan' : 'Grup WhatsApp'
+      }
+    });
+  }
+
+  // PIN verification is required
+  return res.json({
+    valid: false,
+    need_pin: true,
+    has_pin: hasPassword
   });
 });
 
