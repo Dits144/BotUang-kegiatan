@@ -61,8 +61,13 @@ function isAdmin(participantsMeta, senderId) {
   return Boolean(p?.admin);
 }
 
-function isSenderOwner(senderJid) {
-  return isOwner(senderJid, [...OWNER_NUMBERS, ...getOwnerNumbers()]);
+function isSenderOwner(senderJid, altJid) {
+  const isPrimaryOwner = isOwner(senderJid, [...OWNER_NUMBERS, ...getOwnerNumbers()]);
+  if (isPrimaryOwner) return true;
+  if (altJid) {
+    return isOwner(altJid, [...OWNER_NUMBERS, ...getOwnerNumbers()]);
+  }
+  return false;
 }
 
 function inCooldown(senderId, key, ms = 1000) {
@@ -192,8 +197,9 @@ async function start() {
     } : null;
 
     try {
-      const senderIsOwner = isSenderOwner(senderId);
-      console.log(`[DEBUG OWNER] senderId: ${senderId}, isOwner: ${senderIsOwner}`);
+      const altSenderId = msg.key?.participantAlt || msg.key?.remoteJidAlt || '';
+      const senderIsOwner = isSenderOwner(senderId, altSenderId);
+      console.log(`[DEBUG OWNER] senderId: ${senderId}, altSenderId: ${altSenderId}, isOwner: ${senderIsOwner}`);
 
       if (/^#/.test(text) || /^brdcs\s+/i.test(text)) {
         if (!senderIsOwner) return;
