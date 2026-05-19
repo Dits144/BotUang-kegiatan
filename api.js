@@ -84,6 +84,56 @@ function startApi(sock) {
       return res.status(401).send('❌ Token akses tidak valid atau sudah kadaluarsa. Silakan ketik "dashboard" lagi di grup WhatsApp.');
     }
 
+    // Helper for manual cookie parsing
+    const parseCookies = (r) => {
+      const list = {};
+      const rc = r.headers.cookie;
+      if (rc) {
+        rc.split(';').forEach(c => {
+          const parts = c.split('=');
+          list[parts.shift().trim()] = decodeURI(parts.join('='));
+        });
+      }
+      return list;
+    };
+
+    const cookies = parseCookies(req);
+    const isAlreadyVerified = cookies[`verified_${group_id}`] === 'true';
+
+    if (isAlreadyVerified) {
+      // Auto-login! Mark token as verified
+      db.prepare('UPDATE dashboard_tokens SET pin_verified = 1 WHERE token = ?').run(token);
+
+      // Redirect to Lovable dashboard
+      const WEB_URL = process.env.LOVABLE_API_URL || 'https://wabot-dashboard.lovable.app';
+      const botApiUrl = process.env.VITE_BOT_API_URL || process.env.BOT_API_URL || '';
+      
+      let finalApiUrl = botApiUrl;
+      if (!finalApiUrl) {
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+        const possiblePaths = [
+          path.join(os.homedir(), '.pm2/logs/cloudflare-tunnel-3005-out.log'),
+          path.join(os.homedir(), '.pm2/logs/cloudflare-tunnel-3005-error.log'),
+          path.join(os.homedir(), '.pm2/logs/cloudflare-tunnel-3005.log')
+        ];
+        for (const logPath of possiblePaths) {
+          if (fs.existsSync(logPath)) {
+            try {
+              const content = fs.readFileSync(logPath, 'utf8');
+              const match = content.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
+              if (match) {
+                finalApiUrl = match[0];
+                break;
+              }
+            } catch(e){}
+          }
+        }
+      }
+      return res.redirect(`${WEB_URL}/connect?group_id=${encodeURIComponent(group_id)}&token=${encodeURIComponent(token)}${finalApiUrl ? `&apiUrl=${encodeURIComponent(finalApiUrl)}` : ''}`);
+    }
+
     const rental = db.prepare('SELECT password FROM group_rentals WHERE group_id = ?').get(group_id);
     const hasPassword = rental && rental.password;
 
@@ -304,6 +354,9 @@ function startApi(sock) {
 
     // Mark token as verified
     db.prepare('UPDATE dashboard_tokens SET pin_verified = 1 WHERE token = ?').run(cleanToken);
+
+    // Set auto-login cookie
+    res.setHeader('Set-Cookie', `verified_${cleanGroupId}=true; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax`);
 
     // Redirect to Lovable dashboard
     const WEB_URL = process.env.LOVABLE_API_URL || 'https://wabot-dashboard.lovable.app';
