@@ -252,8 +252,8 @@ function startApi(sock) {
     ${errorHtml}
     
     <form action="/connect/verify" method="POST">
-      <input type="hidden" name="group_id" value="${encodeURIComponent(group_id)}">
-      <input type="hidden" name="token" value="${encodeURIComponent(token)}">
+      <input type="hidden" name="group_id" value="${group_id}">
+      <input type="hidden" name="token" value="${token}">
       
       <div class="form-group">
         <label for="password">${labelText}</label>
@@ -274,33 +274,36 @@ function startApi(sock) {
       return res.status(400).send('❌ Data tidak lengkap.');
     }
 
+    const cleanGroupId = decodeURIComponent(group_id);
+    const cleanToken = decodeURIComponent(token);
+
     const { db } = require('./db/database');
     const { DateTime } = require('luxon');
     const { TIMEZONE } = require('./config');
     const nowIso = DateTime.now().setZone(TIMEZONE).toISO();
 
     const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND datetime(expires_at) > datetime(?)')
-      .get(token, group_id, nowIso);
+      .get(cleanToken, cleanGroupId, nowIso);
 
     if (!validToken) {
-      return res.status(401).send('❌ Token akses tidak valid atau sudah kadaluarsa.');
+      return res.status(401).send('❌ Token akses tidak valid atau sudah kadaluarsa. Silakan ketik "dashboard" lagi di grup WhatsApp.');
     }
 
-    const rental = db.prepare('SELECT password FROM group_rentals WHERE group_id = ?').get(group_id);
+    const rental = db.prepare('SELECT password FROM group_rentals WHERE group_id = ?').get(cleanGroupId);
     const hasPassword = rental && rental.password;
 
     if (!hasPassword) {
       // Set new password
-      db.prepare('UPDATE group_rentals SET password = ? WHERE group_id = ?').run(password, group_id);
+      db.prepare('UPDATE group_rentals SET password = ? WHERE group_id = ?').run(password, cleanGroupId);
     } else {
       // Verify existing password
       if (rental.password !== password) {
-        return res.redirect(`/connect?group_id=${encodeURIComponent(group_id)}&token=${encodeURIComponent(token)}&error=1`);
+        return res.redirect(`/connect?group_id=${encodeURIComponent(cleanGroupId)}&token=${encodeURIComponent(cleanToken)}&error=1`);
       }
     }
 
     // Mark token as verified
-    db.prepare('UPDATE dashboard_tokens SET pin_verified = 1 WHERE token = ?').run(token);
+    db.prepare('UPDATE dashboard_tokens SET pin_verified = 1 WHERE token = ?').run(cleanToken);
 
     // Redirect to Lovable dashboard
     const WEB_URL = process.env.LOVABLE_API_URL || 'https://wabot-dashboard.lovable.app';
@@ -331,7 +334,7 @@ function startApi(sock) {
       }
     }
 
-    res.redirect(`${WEB_URL}/connect?group_id=${encodeURIComponent(group_id)}&token=${encodeURIComponent(token)}${finalApiUrl ? `&apiUrl=${encodeURIComponent(finalApiUrl)}` : ''}`);
+    res.redirect(`${WEB_URL}/connect?group_id=${encodeURIComponent(cleanGroupId)}&token=${encodeURIComponent(cleanToken)}${finalApiUrl ? `&apiUrl=${encodeURIComponent(finalApiUrl)}` : ''}`);
   });
 
   // Root path to test connection
