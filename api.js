@@ -359,7 +359,7 @@ function startApi(sock) {
     res.setHeader('Set-Cookie', `verified_${cleanGroupId}=true; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax`);
 
     // Redirect to Lovable dashboard
-    const WEB_URL = process.env.LOVABLE_API_URL || 'https://dashboardits.tech';
+    const WEB_URL = process.env.LOVABLE_API_URL || 'https://www.dashboardits.tech';
     const botApiUrl = process.env.VITE_BOT_API_URL || process.env.BOT_API_URL || '';
     
     // Find dynamic cloudflare url
