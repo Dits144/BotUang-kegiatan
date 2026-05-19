@@ -1,6 +1,5 @@
 node_modules
 dist
-.env
 data/*.db
 *.log
 auth_info_baileys/

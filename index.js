@@ -139,9 +139,32 @@ async function start() {
   startRentalWarningScheduler(sock);
   startApi(sock);
 
-  const { sendHeartbeat } = require('./utils/lovableApi');
+  const { sendHeartbeat, syncGroup } = require('./utils/lovableApi');
   setInterval(() => sendHeartbeat(true).catch(() => {}), 60000); // 1 menit
   sendHeartbeat(true).catch(() => {});
+
+  async function syncToLovableOnStartup() {
+    try {
+      const { db } = require('./db/database');
+      const groups = db.prepare('SELECT group_id FROM group_rentals WHERE is_active=1').all();
+      let synced = 0;
+      for (const g of groups) {
+        try {
+          const meta = await sock.groupMetadata(g.group_id);
+          await syncGroup(g.group_id, meta.subject || g.group_id);
+          synced++;
+        } catch (e) {
+          // Abaikan jika bot sudah tidak ada di grup
+        }
+      }
+      if (synced > 0) console.log(`[Lovable Sync] Berhasil sinkronisasi ${synced} grup ke Dashboard.`);
+    } catch (e) {
+      console.error('[Lovable Sync] Gagal sinkronisasi awal:', e.message);
+    }
+  }
+  
+  // Tunggu 5 detik agar koneksi stabil, lalu sync
+  setTimeout(() => syncToLovableOnStartup(), 5000);
 
   sock.ev.on('creds.update', saveCreds);
   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
