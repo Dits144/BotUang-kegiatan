@@ -325,4 +325,82 @@ router.post('/groups/:groupId/rentals/extend-request', async (req, res) => {
   }
 });
 
+// --- OWNER SPECIALIZED API ENDPOINTS ---
+router.post('/owner/rentals/activate', (req, res) => {
+  const { group_id, days } = req.body;
+  if (!group_id) return res.status(400).json({ error: 'group_id is required' });
+  
+  const daysToExtend = Number(days) || 30;
+  const existing = db.prepare('SELECT * FROM group_rentals WHERE group_id = ?').get(group_id);
+  
+  let newExpire;
+  if (existing && existing.expire_at) {
+    const currentExpire = DateTime.fromISO(existing.expire_at).setZone(TIMEZONE);
+    const now = DateTime.now().setZone(TIMEZONE);
+    
+    if (currentExpire > now) {
+      newExpire = currentExpire.plus({ days: daysToExtend }).toISO();
+    } else {
+      newExpire = now.plus({ days: daysToExtend }).toISO();
+    }
+  } else {
+    newExpire = DateTime.now().setZone(TIMEZONE).plus({ days: daysToExtend }).toISO();
+  }
+  
+  db.prepare(`
+    INSERT INTO group_rentals (group_id, is_active, expire_at, updated_at)
+    VALUES (?, 1, ?, ?)
+    ON CONFLICT(group_id) DO UPDATE SET
+      is_active = 1,
+      expire_at = excluded.expire_at,
+      updated_at = excluded.updated_at
+  `).run(group_id, newExpire, nowIso());
+  
+  res.json({ success: true, message: `Rental activated successfully until ${newExpire}` });
+});
+
+router.post('/owner/rentals/deactivate', (req, res) => {
+  const { group_id } = req.body;
+  if (!group_id) return res.status(400).json({ error: 'group_id is required' });
+  
+  db.prepare(`
+    UPDATE group_rentals 
+    SET is_active = 0, updated_at = ? 
+    WHERE group_id = ?
+  `).run(nowIso(), group_id);
+  
+  res.json({ success: true, message: 'Rental deactivated successfully' });
+});
+
+router.post('/owner/broadcast', async (req, res) => {
+  const { message, group_ids } = req.body;
+  if (!message) return res.status(400).json({ error: 'message is required' });
+  
+  const sock = req.app.get('sock');
+  if (!sock) return res.status(500).json({ error: 'WhatsApp bot is not connected' });
+  
+  try {
+    let targets = group_ids;
+    if (!targets || !targets.length) {
+      const rentals = db.prepare('SELECT group_id FROM group_rentals WHERE is_active = 1').all();
+      targets = rentals.map(r => r.group_id);
+    }
+    
+    let successCount = 0;
+    for (const jid of targets) {
+      try {
+        await sock.sendMessage(jid, { text: message });
+        successCount++;
+      } catch (err) {
+        console.error(`[Broadcast] Gagal mengirim pesan ke ${jid}:`, err);
+      }
+    }
+    
+    res.json({ success: true, message: `Broadcast berhasil dikirim ke ${successCount} grup!` });
+  } catch (error) {
+    console.error('Error sending broadcast:', error);
+    res.status(500).json({ error: 'Failed to send broadcast' });
+  }
+});
+
 module.exports = router;
