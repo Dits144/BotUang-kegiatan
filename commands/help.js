@@ -7,7 +7,7 @@ const USER_SECTION = [
   '━━━━━━━━━━━━━━━━━━',
   '👤 *MENU USER* 👤',
   '━━━━━━━━━━━━━━━━━━',
-  'ℹ️ myrole                 - cek role anda',
+  'ℹ️ rolesaya             - cek role anda',
   '📋 listpeserta          - lihat list peserta',
   '📒 riwayat              - lihat riwayat transaksi',
   '🧮 kalkulator           - tambah | kurang | kali | bagi',

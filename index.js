@@ -209,7 +209,7 @@ async function start() {
         senderIsAdmin = isAdmin(meta.participants, senderId);
       }
 
-      if (/^myrole$/i.test(text) || /^\.myrole$/i.test(text)) {
+      if (/^rolesaya$/i.test(text) || /^\.rolesaya$/i.test(text)) {
         let role = 'User biasa';
         if (senderIsOwner) role = '👑 *Owner Bot*';
         else if (senderIsAdmin) role = '👮 *Admin Grup*';
