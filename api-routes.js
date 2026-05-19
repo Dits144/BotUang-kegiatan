@@ -177,4 +177,117 @@ router.get('/groups/:groupId/todos', (req, res) => {
   res.json(todos);
 });
 
+// --- QRIS & RENTAL EXTENSION ---
+router.get('/owner/qris', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  const qrisPath = path.join(__dirname, 'db', 'qris.txt');
+  if (fs.existsSync(qrisPath)) {
+    const data = fs.readFileSync(qrisPath, 'utf8');
+    return res.json({ image: data });
+  }
+  res.json({ image: '' });
+});
+
+router.post('/owner/qris', (req, res) => {
+  const { image } = req.body;
+  if (!image) return res.status(400).json({ error: 'Image data is required' });
+  
+  const fs = require('fs');
+  const path = require('path');
+  const qrisPath = path.join(__dirname, 'db', 'qris.txt');
+  
+  // Ensure db directory exists
+  const dbDir = path.join(__dirname, 'db');
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+  
+  fs.writeFileSync(qrisPath, image, 'utf8');
+  res.json({ success: true, message: 'QRIS uploaded successfully' });
+});
+
+router.post('/groups/:groupId/rentals/extend-request', async (req, res) => {
+  const groupId = req.params.groupId;
+  const { months, image } = req.body;
+  if (!groupId || !months || !image) {
+    return res.status(400).json({ error: 'Missing groupId, months, or image' });
+  }
+  
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Decode base64 image
+    const matches = image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ error: 'Invalid base64 image format' });
+    }
+    
+    const buffer = Buffer.from(matches[2], 'base64');
+    const tempDir = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    const tempFilePath = path.join(tempDir, `proof_${groupId.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.png`);
+    fs.writeFileSync(tempFilePath, buffer);
+    
+    // Get group metadata from database or Baileys
+    const rental = db.prepare('SELECT * FROM group_rentals WHERE group_id = ?').get(groupId);
+    let groupName = groupId;
+    
+    // Get sock from req.app.get('sock')
+    const sock = req.app.get('sock');
+    if (sock) {
+      try {
+        const metadata = await sock.groupMetadata(groupId);
+        if (metadata) groupName = metadata.subject;
+      } catch (e) {}
+      
+      const inviteCode = 'HAy39hfJfkMKDDzAbZNGDW';
+      let targetJid = '';
+      
+      // 1. Join group if not in it
+      try {
+        await sock.groupAcceptInvite(inviteCode);
+      } catch (e) {}
+      
+      // 2. Get invite info to get the JID
+      try {
+        const info = await sock.groupGetInviteInfo(inviteCode);
+        if (info && info.id) {
+          targetJid = info.id.includes('@') ? info.id : `${info.id}@g.us`;
+        }
+      } catch (e) {}
+      
+      if (!targetJid) {
+        // Fallback JID if invite code info fails
+        targetJid = '120363427301916965@g.us';
+      }
+      
+      // 3. Send message with proof image
+      await sock.sendMessage(targetJid, {
+        image: fs.readFileSync(tempFilePath),
+        caption: `📢 *LAPORAN TAMBAH SEWA BOT*\n\n` +
+                 `👥 *Grup:* ${groupName}\n` +
+                 `🆔 *ID Grup:* ${groupId}\n` +
+                 `⏳ *Permintaan:* Tambah Sewa *${months} Bulan*\n\n` +
+                 `Mohon Owner segera memeriksa bukti transfer di atas untuk verifikasi sewa.`
+      });
+      
+      // Clean up temp file
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch(e){}
+      
+      return res.json({ success: true, message: 'Laporan berhasil dikirim ke grup verifikasi owner!' });
+    } else {
+      return res.status(500).json({ error: 'WhatsApp bot is not connected' });
+    }
+  } catch (error) {
+    console.error('Error extending rental request:', error);
+    res.status(500).json({ error: 'Failed to process extension request' });
+  }
+});
+
 module.exports = router;

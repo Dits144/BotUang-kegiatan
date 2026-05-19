@@ -3,6 +3,7 @@ const cors = require('cors');
 
 function startApi(sock) {
   const app = express();
+  app.set('sock', sock);
   const PORT = process.env.API_PORT || 3005;
 
   app.use(cors());
@@ -19,6 +20,7 @@ function startApi(sock) {
       req.path === '/api/' || 
       req.path === '/connect' ||
       req.path === '/connect/verify' ||
+      (req.path === '/api/owner/qris' && req.method === 'GET') ||
       req.path.endsWith('/connect/validate')
     ) {
       return next();
