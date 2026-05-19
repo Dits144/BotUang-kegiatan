@@ -67,83 +67,46 @@ function startApi(sock) {
 
   // HTML page for PIN setting / verification
   app.get('/connect', (req, res) => {
-    const { group_id, token } = req.query;
-    if (!group_id || !token) {
-      return res.status(400).send('❌ Parameter tidak lengkap (group_id dan token diperlukan).');
-    }
+    const { group_id, token, error } = req.query;
 
     const { db } = require('./db/database');
     const { DateTime } = require('luxon');
     const { TIMEZONE } = require('./config');
     const nowIso = DateTime.now().setZone(TIMEZONE).toISO();
 
-    const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND datetime(expires_at) > datetime(?)')
-      .get(token, group_id, nowIso);
+    let isTokenValid = false;
+    let hasPassword = false;
+    let rental = null;
 
-    if (!validToken) {
-      return res.status(401).send('❌ Token akses tidak valid atau sudah kadaluarsa. Silakan ketik "dashboard" lagi di grup WhatsApp.');
+    if (group_id && token) {
+      const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND datetime(expires_at) > datetime(?)')
+        .get(token, group_id, nowIso);
+
+      if (validToken) {
+        isTokenValid = true;
+        rental = db.prepare('SELECT password FROM group_rentals WHERE group_id = ?').get(group_id);
+        hasPassword = rental && rental.password;
+      }
     }
 
-    // Helper for manual cookie parsing
-    const parseCookies = (r) => {
-      const list = {};
-      const rc = r.headers.cookie;
-      if (rc) {
-        rc.split(';').forEach(c => {
-          const parts = c.split('=');
-          list[parts.shift().trim()] = decodeURI(parts.join('='));
-        });
-      }
-      return list;
-    };
-
-    const cookies = parseCookies(req);
-    const isAlreadyVerified = cookies[`verified_${group_id}`] === 'true';
-
-    if (isAlreadyVerified) {
-      // Auto-login! Mark token as verified
-      db.prepare('UPDATE dashboard_tokens SET pin_verified = 1 WHERE token = ?').run(token);
-
-      // Redirect to Lovable dashboard
-      const WEB_URL = process.env.LOVABLE_API_URL || 'https://wabot-dashboard.lovable.app';
-      const botApiUrl = process.env.VITE_BOT_API_URL || process.env.BOT_API_URL || '';
-      
-      let finalApiUrl = botApiUrl;
-      if (!finalApiUrl) {
-        const fs = require('fs');
-        const path = require('path');
-        const os = require('os');
-        const possiblePaths = [
-          path.join(os.homedir(), '.pm2/logs/cloudflare-tunnel-3005-out.log'),
-          path.join(os.homedir(), '.pm2/logs/cloudflare-tunnel-3005-error.log'),
-          path.join(os.homedir(), '.pm2/logs/cloudflare-tunnel-3005.log')
-        ];
-        for (const logPath of possiblePaths) {
-          if (fs.existsSync(logPath)) {
-            try {
-              const content = fs.readFileSync(logPath, 'utf8');
-              const match = content.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
-              if (match) {
-                finalApiUrl = match[0];
-                break;
-              }
-            } catch(e){}
-          }
-        }
-      }
-      return res.redirect(`${WEB_URL}/connect?group_id=${encodeURIComponent(group_id)}&token=${encodeURIComponent(token)}${finalApiUrl ? `&apiUrl=${encodeURIComponent(finalApiUrl)}` : ''}`);
+    // Tentukan pesan error
+    let errorHtml = '';
+    if (error === '1' || error === 'invalid_password') {
+      errorHtml = `<div class="error-msg">⚠️ PIN / Password salah! Silakan coba lagi.</div>`;
+    } else if (error === 'invalid_token' || (group_id && token && !isTokenValid)) {
+      errorHtml = `<div class="error-msg">⚠️ Token akses tidak valid atau sudah kadaluarsa! Silakan minta token baru di grup WhatsApp dengan mengetik perintah *dashboard*.</div>`;
     }
 
-    const rental = db.prepare('SELECT password FROM group_rentals WHERE group_id = ?').get(group_id);
-    const hasPassword = rental && rental.password;
+    // Siapkan teks panduan dinamis
+    const subtitleText = group_id
+      ? (hasPassword 
+          ? 'Grup Anda telah diamankan dengan PIN. Masukkan PIN / Password grup untuk mengakses dashboard.'
+          : 'Selamat Datang! Silakan setel PIN / Password keamanan baru untuk membatasi akses ke dashboard grup ini.')
+      : 'Masukkan ID Grup, Token Akses, dan PIN/Password grup Anda untuk masuk ke Dashboard.';
 
-    const subtitleText = hasPassword 
-      ? 'Grup Anda telah diamankan dengan PIN. Silakan masukkan PIN / Password grup untuk masuk.'
-      : 'Selamat Datang! Silakan setel PIN / Password keamanan baru untuk membatasi akses ke dashboard grup ini.';
-    const labelText = hasPassword ? 'Masukkan PIN / Password Grup' : 'Setel PIN / Password Baru';
-    const placeholderText = hasPassword ? 'Masukkan PIN Anda' : 'Bebas, misal PIN 6 angka atau kata sandi';
-    const buttonText = hasPassword ? 'Verifikasi & Masuk' : 'Simpan PIN & Masuk';
-    const errorHtml = req.query.error ? `<div class="error-msg">⚠️ PIN / Password salah! Silakan coba lagi.</div>` : '';
+    const passwordLabelText = (group_id && !hasPassword) ? 'Setel PIN / Password Baru' : 'Masukkan PIN / Password Grup';
+    const passwordPlaceholderText = (group_id && !hasPassword) ? 'Bebas, misal PIN 6 angka atau kata sandi' : 'Masukkan PIN Anda';
+    const buttonText = (group_id && !hasPassword) ? 'Simpan PIN & Masuk' : 'Verifikasi & Masuk';
 
     res.send(`
 <!DOCTYPE html>
@@ -186,7 +149,7 @@ function startApi(sock) {
       border-radius: 24px;
       padding: 40px 32px;
       width: 100%;
-      max-width: 420px;
+      max-width: 440px;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
       text-align: center;
       animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -224,16 +187,16 @@ function startApi(sock) {
     .subtitle {
       font-size: 14px;
       color: var(--text-mute);
-      margin-bottom: 32px;
+      margin-bottom: 28px;
       line-height: 1.5;
     }
     .form-group {
       text-align: left;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
     label {
       display: block;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -248,7 +211,7 @@ function startApi(sock) {
       padding: 14px 16px;
       color: var(--text);
       font-family: inherit;
-      font-size: 16px;
+      font-size: 15px;
       transition: all 0.3s ease;
       outline: none;
     }
@@ -256,6 +219,9 @@ function startApi(sock) {
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
       background: rgba(255, 255, 255, 0.05);
+    }
+    input::placeholder {
+      color: rgba(255, 255, 255, 0.25);
     }
     button {
       width: 100%;
@@ -270,6 +236,7 @@ function startApi(sock) {
       cursor: pointer;
       box-shadow: 0 4px 12px var(--primary-glow);
       transition: all 0.2s ease;
+      margin-top: 10px;
     }
     button:hover {
       transform: translateY(-1px);
@@ -283,11 +250,12 @@ function startApi(sock) {
       margin-bottom: 20px;
       padding: 12px;
       border-radius: 10px;
-      background: rgba(239, 68, 68, 0.1);
-      border: 1px solid rgba(239, 68, 68, 0.2);
-      color: #ef4444;
-      font-size: 14px;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      font-size: 13.5px;
       text-align: left;
+      line-height: 1.4;
     }
   </style>
 </head>
@@ -302,12 +270,19 @@ function startApi(sock) {
     ${errorHtml}
     
     <form action="/connect/verify" method="POST">
-      <input type="hidden" name="group_id" value="${group_id}">
-      <input type="hidden" name="token" value="${token}">
-      
       <div class="form-group">
-        <label for="password">${labelText}</label>
-        <input type="password" id="password" name="password" required placeholder="${placeholderText}" autofocus>
+        <label for="group_id">JID Grup / ID Grup</label>
+        <input type="text" id="group_id" name="group_id" required placeholder="Masukkan ID Grup (misal: 120363xxx@g.us)" value="${group_id || ''}">
+      </div>
+
+      <div class="form-group">
+        <label for="token">Token Akses</label>
+        <input type="text" id="token" name="token" required placeholder="Masukkan token akses dari bot" value="${token || ''}">
+      </div>
+
+      <div class="form-group">
+        <label for="password">${passwordLabelText}</label>
+        <input type="password" id="password" name="password" required placeholder="${passwordPlaceholderText}" autofocus>
       </div>
       
       <button type="submit">${buttonText}</button>
@@ -321,11 +296,11 @@ function startApi(sock) {
   app.post('/connect/verify', (req, res) => {
     const { group_id, token, password } = req.body;
     if (!group_id || !token || !password) {
-      return res.status(400).send('❌ Data tidak lengkap.');
+      return res.redirect(`/connect?error=invalid_token`);
     }
 
-    const cleanGroupId = decodeURIComponent(group_id);
-    const cleanToken = decodeURIComponent(token);
+    const cleanGroupId = decodeURIComponent(group_id).trim();
+    const cleanToken = decodeURIComponent(token).trim();
 
     const { db } = require('./db/database');
     const { DateTime } = require('luxon');
@@ -336,7 +311,7 @@ function startApi(sock) {
       .get(cleanToken, cleanGroupId, nowIso);
 
     if (!validToken) {
-      return res.status(401).send('❌ Token akses tidak valid atau sudah kadaluarsa. Silakan ketik "dashboard" lagi di grup WhatsApp.');
+      return res.redirect(`/connect?group_id=${encodeURIComponent(cleanGroupId)}&token=${encodeURIComponent(cleanToken)}&error=invalid_token`);
     }
 
     const rental = db.prepare('SELECT password FROM group_rentals WHERE group_id = ?').get(cleanGroupId);
@@ -348,15 +323,12 @@ function startApi(sock) {
     } else {
       // Verify existing password
       if (rental.password !== password) {
-        return res.redirect(`/connect?group_id=${encodeURIComponent(cleanGroupId)}&token=${encodeURIComponent(cleanToken)}&error=1`);
+        return res.redirect(`/connect?group_id=${encodeURIComponent(cleanGroupId)}&token=${encodeURIComponent(cleanToken)}&error=invalid_password`);
       }
     }
 
     // Mark token as verified
     db.prepare('UPDATE dashboard_tokens SET pin_verified = 1 WHERE token = ?').run(cleanToken);
-
-    // Set auto-login cookie
-    res.setHeader('Set-Cookie', `verified_${cleanGroupId}=true; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax`);
 
     // Redirect to Lovable dashboard
     const WEB_URL = process.env.LOVABLE_API_URL || 'https://www.dashboardits.tech';

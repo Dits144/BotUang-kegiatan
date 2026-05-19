@@ -287,9 +287,8 @@ async function start() {
           }
         }
         
-        // Tautan kini mengarah langsung ke Lovable connect page yang sangat premium
-        const webUrl = process.env.LOVABLE_API_URL || 'https://www.dashboardits.tech';
-        const link = `${webUrl}/connect?group_id=${encodeURIComponent(groupId)}&token=${encodeURIComponent(token)}${botApiUrl ? `&apiUrl=${encodeURIComponent(botApiUrl)}` : ''}`;
+        // Tautan diarahkan ke verifikasi PIN di API bot lokal/tunnel terlebih dahulu untuk mencegah bypass login
+        const link = `${botApiUrl || 'http://localhost:3005'}/connect?group_id=${encodeURIComponent(groupId)}&token=${encodeURIComponent(token)}`;
         
         await sock.sendMessage(groupId, { text: `🔐 *Akses Web Dashboard*\n\nKlik link di bawah ini untuk mengelola grup Anda (berlaku 15 menit):\n\n${link}` }, { quoted: msg });
         return;
