@@ -77,6 +77,43 @@ function startApi(sock) {
     }
   });
 
+  // Get all groups
+  app.get('/api/groups', async (req, res) => {
+    try {
+      if (!sock) return res.status(500).json({ success: false, error: 'Bot is not connected' });
+      
+      const { db } = require('./db/database');
+      // Ambil grup yang aktif disewa
+      const rentals = db.prepare('SELECT * FROM group_rentals WHERE is_active=1').all();
+      
+      // Ambil metadata dari memori Baileys
+      const allGroups = await sock.groupFetchAllParticipating();
+      
+      const results = [];
+      for (const r of rentals) {
+        const meta = allGroups[r.group_id];
+        results.push({
+          id: r.group_id,
+          jid: r.group_id,
+          name: meta ? meta.subject : r.group_id,
+          is_active: r.is_active === 1,
+          expire_at: r.expire_at
+        });
+      }
+      
+      res.json({ success: true, data: results });
+    } catch (error) {
+      console.error('[API] Error getting groups:', error);
+      res.status(500).json({ success: false, error: 'Failed to fetch groups' });
+    }
+  });
+
+  // Catch-all route to log missing endpoints
+  app.use((req, res) => {
+    console.log(`[API 404] Lovable Dashboard mencoba mengakses: ${req.method} ${req.url}`);
+    res.status(404).json({ error: 'Endpoint not found', path: req.url });
+  });
+
   app.listen(PORT, () => {
     console.log(`🚀 API Server running on http://localhost:${PORT}`);
   });
