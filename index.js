@@ -193,10 +193,11 @@ async function start() {
 
     try {
       const senderIsOwner = isSenderOwner(senderId);
+      console.log(`[DEBUG OWNER] senderId: ${senderId}, isOwner: ${senderIsOwner}`);
 
       if (/^#/.test(text) || /^brdcs\s+/i.test(text)) {
         if (!senderIsOwner) return;
-        if (!isRentalActive(groupId) && !/^#aktif|^#health|^brdcs/i.test(text)) return;
+        // Owner can run ANY # command regardless of rental status
         const resp = await handleOwnerCommand({ sock, text, groupId, isGroupMessage });
         if (resp) await sock.sendMessage(groupId, { text: resp }, { quoted: msg });
         return;
