@@ -107,6 +107,12 @@ CREATE TABLE IF NOT EXISTS todos (
 
 CREATE INDEX IF NOT EXISTS idx_todos_group_created
 ON todos(group_id, created_at ASC);
+CREATE TABLE IF NOT EXISTS dashboard_tokens (
+  token TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
 `);
 
 function ensureColumn(table, column, ddl) {

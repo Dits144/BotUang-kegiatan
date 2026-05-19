@@ -237,18 +237,30 @@ async function start() {
       }
       const canAdminManage = senderIsOwner || senderIsAdmin;
 
-      if (text.trim() === '.login') {
+      if (text.trim().toLowerCase() === 'dashboard') {
         if (!canAdminManage) {
           await sock.sendMessage(groupId, { text: '❌ Anda tidak memiliki akses untuk perintah ini.' }, { quoted: msg });
           return;
         }
-        const { createMagicLink } = require('./utils/lovableApi');
-        const linkRes = await createMagicLink(groupId);
-        if (linkRes && linkRes.message) {
-          await sock.sendMessage(groupId, { text: linkRes.message }, { quoted: msg });
-        } else {
-          await sock.sendMessage(groupId, { text: '❌ Gagal membuat link login. Cek API Key Anda.' }, { quoted: msg });
-        }
+        
+        // Buat token 16 karakter acak
+        const crypto = require('crypto');
+        const token = crypto.randomBytes(8).toString('hex');
+        
+        // Token berlaku 15 menit
+        const { DateTime } = require('luxon');
+        const { TIMEZONE } = require('./config');
+        const expiresAt = DateTime.now().setZone(TIMEZONE).plus({ minutes: 15 }).toISO();
+        
+        const { db } = require('./db/database');
+        db.prepare('INSERT INTO dashboard_tokens (token, group_id, created_at, expires_at) VALUES (?, ?, ?, ?)')
+          .run(token, groupId, DateTime.now().setZone(TIMEZONE).toISO(), expiresAt);
+        
+        // Gunakan URL Web Lovable
+        const WEB_URL = process.env.LOVABLE_API_URL || 'https://wabot-dashboard.lovable.app';
+        const link = `${WEB_URL}/connect?group_id=${groupId}&token=${token}`;
+        
+        await sock.sendMessage(groupId, { text: `🔐 *Akses Web Dashboard*\n\nKlik link di bawah ini untuk mengelola grup Anda (berlaku 15 menit):\n\n${link}` }, { quoted: msg });
         return;
       }
 

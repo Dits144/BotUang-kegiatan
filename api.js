@@ -108,6 +108,10 @@ function startApi(sock) {
     }
   });
 
+  // Mount full CRUD routes
+  const apiRoutes = require('./api-routes');
+  app.use('/api', apiRoutes);
+
   // Catch-all route to log missing endpoints
   app.use((req, res) => {
     console.log(`[API 404] Lovable Dashboard mencoba mengakses: ${req.method} ${req.url}`);
