@@ -1,3 +1,3 @@
-const { parseOwnerActivate } = require('./utils/parser');
-console.log(parseOwnerActivate('#aktif 120363427301916965@g.us 3', null));
-console.log(parseOwnerActivate('#aktif 3', '120363427301916965@g.us'));
+const { db } = require('./db/database');
+console.log('TOKENS:', db.prepare('SELECT * FROM dashboard_tokens').all());
+console.log('RENTALS:', db.prepare('SELECT * FROM group_rentals').all());
