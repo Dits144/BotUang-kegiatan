@@ -262,10 +262,33 @@ async function start() {
         db.prepare('INSERT INTO dashboard_tokens (token, group_id, created_at, expires_at) VALUES (?, ?, ?, ?)')
           .run(token, groupId, DateTime.now().setZone(TIMEZONE).toISO(), expiresAt);
         
-        // Gunakan URL Web Lovable
-        const WEB_URL = process.env.LOVABLE_API_URL || 'https://wabot-dashboard.lovable.app';
-        const botApiUrl = process.env.VITE_BOT_API_URL || process.env.BOT_API_URL || '';
-        const link = `${WEB_URL}/connect?group_id=${groupId}&token=${token}${botApiUrl ? `&apiUrl=${encodeURIComponent(botApiUrl)}` : ''}`;
+        // Dapatkan URL Cloudflare aktif secara dinamis jika kosong
+        let botApiUrl = process.env.VITE_BOT_API_URL || process.env.BOT_API_URL || '';
+        if (!botApiUrl) {
+          const fs = require('fs');
+          const path = require('path');
+          const os = require('os');
+          const possiblePaths = [
+            path.join(os.homedir(), '.pm2/logs/cloudflare-tunnel-3005-out.log'),
+            path.join(os.homedir(), '.pm2/logs/cloudflare-tunnel-3005-error.log'),
+            path.join(os.homedir(), '.pm2/logs/cloudflare-tunnel-3005.log')
+          ];
+          for (const logPath of possiblePaths) {
+            if (fs.existsSync(logPath)) {
+              try {
+                const content = fs.readFileSync(logPath, 'utf8');
+                const match = content.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
+                if (match) {
+                  botApiUrl = match[0];
+                  break;
+                }
+              } catch(e){}
+            }
+          }
+        }
+        
+        // Tautan kini mengarah ke verifikasi PIN di API bot di VM terlebih dahulu
+        const link = `${botApiUrl || 'http://localhost:3005'}/connect?group_id=${encodeURIComponent(groupId)}&token=${encodeURIComponent(token)}`;
         
         await sock.sendMessage(groupId, { text: `🔐 *Akses Web Dashboard*\n\nKlik link di bawah ini untuk mengelola grup Anda (berlaku 15 menit):\n\n${link}` }, { quoted: msg });
         return;

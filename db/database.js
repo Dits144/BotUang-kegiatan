@@ -129,6 +129,9 @@ ensureColumn('group_settings', 'header_text', 'header_text TEXT');
 ensureColumn('group_settings', 'typo_enabled', 'typo_enabled INTEGER NOT NULL DEFAULT 1');
 ensureColumn('reminders', 'created_by', 'created_by TEXT');
 ensureColumn('group_rentals', 'last_h1_warning_at', 'last_h1_warning_at TEXT');
+ensureColumn('group_rentals', 'password', 'password TEXT');
+ensureColumn('dashboard_tokens', 'pin_verified', 'pin_verified INTEGER NOT NULL DEFAULT 0');
+
 
 function nowWibIso() {
   return DateTime.now().setZone(TIMEZONE).toISO();

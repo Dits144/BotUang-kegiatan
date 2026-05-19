@@ -16,9 +16,10 @@ router.post('/groups/:groupId/connect/validate', (req, res) => {
   const { token } = req.body;
   if (!groupId || !token) return res.status(400).json({ success: false, error: 'Missing groupId or token' });
 
-  const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND datetime(expires_at) > datetime(?)').get(token, groupId, nowIso());
+  const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND pin_verified = 1 AND datetime(expires_at) > datetime(?)').get(token, groupId, nowIso());
   
-  if (!validToken) return res.status(401).json({ success: false, error: 'Token invalid or expired' });
+  if (!validToken) return res.status(401).json({ success: false, error: 'Token invalid, expired, or PIN not verified' });
+
   
   const rental = db.prepare('SELECT * FROM group_rentals WHERE group_id = ?').get(groupId);
   
