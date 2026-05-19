@@ -60,10 +60,15 @@ async function createMagicLink(group_jid) {
   return await fetchLovable('/api/public/bot/auth/magic', 'POST', { group_jid });
 }
 
+async function getDueReminders() {
+  return await fetchLovable('/api/public/bot/reminders?due=1', 'GET');
+}
+
 module.exports = {
   syncGroup,
   syncTransaction,
   markReminderSent,
   sendHeartbeat,
-  createMagicLink
+  createMagicLink,
+  getDueReminders
 };

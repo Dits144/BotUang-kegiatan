@@ -163,6 +163,30 @@ async function processDueReminders(sock) {
       } catch (_) { /* ignore */ }
     }
   }
+
+  /* --- External Reminders dari Lovable Dashboard --- */
+  try {
+    const { getDueReminders, markReminderSent } = require('../utils/lovableApi');
+    const externalReminders = await getDueReminders();
+    
+    if (externalReminders && Array.isArray(externalReminders) && externalReminders.length > 0) {
+      for (const ext of externalReminders) {
+        try {
+          await sock.sendMessage(ext.group_jid, {
+            text: `⏰ *REMINDER*\n\n${ext.message}`
+          });
+          console.log(`[Reminder] Sent external reminder ${ext.id} to ${ext.group_jid}`);
+          
+          // Tandai sudah terkirim di dashboard
+          await markReminderSent(ext.id);
+        } catch (e) {
+          console.error(`[Reminder] Send error for external reminder ${ext.id}:`, e.message);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[Reminder] External fetch error:', e.message);
+  }
 }
 
 function startReminderWorker(sock) {

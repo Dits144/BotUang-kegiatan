@@ -8,6 +8,20 @@ function startApi(sock) {
   app.use(cors());
   app.use(express.json());
 
+  // Authentication middleware
+  app.use((req, res, next) => {
+    // Abaikan auth untuk path tertentu jika perlu
+    if (req.path === '/') return next();
+    
+    const authHeader = req.headers.authorization;
+    const apiKey = process.env.LOVABLE_API_KEY;
+    
+    if (apiKey && (!authHeader || authHeader !== `Bearer ${apiKey}`)) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
+    }
+    next();
+  });
+
   // Root path to test connection
   app.get('/', (req, res) => {
     res.send('✅ Bot API is running perfectly!');
