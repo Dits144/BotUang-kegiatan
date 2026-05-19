@@ -3,3 +3,5 @@ dist
 data/*.db
 *.log
 auth_info_baileys/
+db/*.sqlite-shm
+db/*.sqlite-wal

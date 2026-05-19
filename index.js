@@ -241,7 +241,16 @@ async function start() {
           if (!senderIsOwner) return;
           const resp = await handleOwnerCommand({ sock, text: `#aktif ${groupId} ${days}`, groupId, isGroupMessage: true });
           if (resp) await sock.sendMessage(groupId, { text: resp }, { quoted: msg });
+          return;
         }
+        
+        if (/^(menu|help)$/i.test(text)) {
+          if (!senderIsOwner) return; // Abaikan untuk selain owner jika expired
+          const { menuText } = require('./commands/help');
+          await sock.sendMessage(groupId, { text: menuText('owner') }, { quoted: msg });
+          return;
+        }
+        
         return;
       }
 
