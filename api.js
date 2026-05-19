@@ -3,7 +3,7 @@ const cors = require('cors');
 
 function startApi(sock) {
   const app = express();
-  const PORT = process.env.API_PORT || 3000;
+  const PORT = process.env.API_PORT || 3005;
 
   app.use(cors());
   app.use(express.json());
