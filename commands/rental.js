@@ -41,7 +41,7 @@ function shouldWarnExpiring(groupId) {
 
 /* ─── Admin cek sewa grup sendiri ─── */
 function handleCekSewa(ctx) {
-  if (!/^ceksewa$/i.test(ctx.text.trim())) return null;
+  if (!/^cekaktif$/i.test(ctx.text.trim())) return null;
 
   const rental = getRental(ctx.groupId);
   const status = rentalStatusText(rental);

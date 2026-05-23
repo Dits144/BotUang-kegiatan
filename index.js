@@ -243,7 +243,7 @@ async function start() {
 
       const canAdminManage = senderIsOwner || senderIsAdmin;
 
-      if (text.trim().toLowerCase() === 'dashboard') {
+      if (text.trim().toLowerCase() === 'dasbor' || text.trim().toLowerCase() === 'dashboard') {
         if (!canAdminManage) {
           await sock.sendMessage(groupId, { text: '❌ Anda tidak memiliki akses untuk perintah ini.' }, { quoted: msg });
           return;
@@ -253,10 +253,10 @@ async function start() {
         const crypto = require('crypto');
         const token = crypto.randomBytes(8).toString('hex');
         
-        // Token berlaku 15 menit
+        // Token berlaku 24 jam
         const { DateTime } = require('luxon');
         const { TIMEZONE } = require('./config');
-        const expiresAt = DateTime.now().setZone(TIMEZONE).plus({ minutes: 15 }).toISO();
+        const expiresAt = DateTime.now().setZone(TIMEZONE).plus({ hours: 24 }).toISO();
         
         const { db } = require('./db/database');
         db.prepare('INSERT INTO dashboard_tokens (token, group_id, created_at, expires_at) VALUES (?, ?, ?, ?)')
@@ -291,7 +291,7 @@ async function start() {
         const webUrl = process.env.LOVABLE_API_URL || 'https://www.dashboardits.tech';
         const link = `${webUrl}/connect?group_id=${encodeURIComponent(groupId)}&token=${encodeURIComponent(token)}${botApiUrl ? `&apiUrl=${encodeURIComponent(botApiUrl)}` : ''}`;
         
-        await sock.sendMessage(groupId, { text: `🔐 *Akses Web Dashboard*\n\nKlik link di bawah ini untuk mengelola grup Anda (berlaku 15 menit):\n\n${link}` }, { quoted: msg });
+        await sock.sendMessage(groupId, { text: `🔐 *Akses Web Dashboard*\n\nKlik link di bawah ini untuk mengelola grup Anda (berlaku 24 jam):\n\n${link}` }, { quoted: msg });
         return;
       }
 
@@ -307,7 +307,7 @@ async function start() {
         || /^todolist$/i.test(text)
         || /^todo\s+lihat$/i.test(text);
 
-      const adminCommands = /^(menu|help|[+-]|inputtransaksi|saldo(\s|$)|edit\s*|hapus\s*|detail\s*|addpeserta\s*|delpeserta\s*|updatepeserta\s*|setheader\s*|command\s*|update\s*command\s*|updatecommand\s*|delcommand\s*|listcommand$|detailcommand\s+|remind\s*|listremind$|noremind\s*|todo\s*|doto\s*|lokweather\s*|clearall\s*|typo\s*|ceksewa$)/i.test(text);
+      const adminCommands = /^(menu|help|[+-]|inputtransaksi|saldo(\s|$)|edit\s*|hapus\s*|detail\s*|addpeserta\s*|delpeserta\s*|updatepeserta\s*|setheader\s*|command\s*|update\s*command\s*|updatecommand\s*|delcommand\s*|listcommand$|detailcommand\s+|remind\s*|listremind$|noremind\s*|todo\s*|doto\s*|lokweather\s*|clearall\s*|typo\s*|ceksewa$|cekaktif$)/i.test(text);
       if (!canAdminManage && adminCommands && !userAllowed) {
         await sock.sendMessage(groupId, { text: '❌ Anda tidak memiliki akses untuk perintah ini.' }, { quoted: msg });
         return;

@@ -113,6 +113,16 @@ CREATE TABLE IF NOT EXISTS dashboard_tokens (
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS rental_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  group_id TEXT NOT NULL,
+  months INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('pending', 'approved', 'rejected')),
+  proof_image TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 `);
 
 function ensureColumn(table, column, ddl) {
