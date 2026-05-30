@@ -243,7 +243,7 @@ async function start() {
 
       const canAdminManage = senderIsOwner || senderIsAdmin;
 
-      if (text.trim().toLowerCase() === 'dasbor' || text.trim().toLowerCase() === 'dashboard') {
+      if (text.trim().toLowerCase() === 'dasbor') {
         if (!canAdminManage) {
           await sock.sendMessage(groupId, { text: '❌ Anda tidak memiliki akses untuk perintah ini.' }, { quoted: msg });
           return;
