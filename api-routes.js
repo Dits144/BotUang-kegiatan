@@ -754,6 +754,60 @@ router.post('/owner/broadcast', async (req, res) => {
   }
 });
 
+router.post('/owner/broadcast-numbers', async (req, res) => {
+  const { message, numbers } = req.body;
+  if (!message) return res.status(400).json({ error: 'message is required' });
+  if (!numbers || !numbers.length) return res.status(400).json({ error: 'numbers is required' });
+  
+  const sock = req.app.get('sock');
+  if (!sock) return res.status(500).json({ error: 'WhatsApp bot is not connected' });
+  
+  try {
+    let successCount = 0;
+    const targetNumbers = Array.isArray(numbers) ? numbers : String(numbers).split(',').map(n => n.trim()).filter(Boolean);
+    for (const num of targetNumbers) {
+      try {
+        const jid = num.includes('@') ? num : num + '@s.whatsapp.net';
+        await sock.sendMessage(jid, { text: `📢 BROADCAST PENGUMUMAN\n\n${message}` });
+        successCount++;
+      } catch (err) {
+        console.error(`[Brdcs] Gagal mengirim pesan ke ${num}:`, err);
+      }
+    }
+    res.json({ success: true, message: `Broadcast berhasil dikirim ke ${successCount} nomor!` });
+  } catch (error) {
+    console.error('Error sending number broadcast:', error);
+    res.status(500).json({ error: 'Failed to send broadcast to numbers' });
+  }
+});
+
+router.get('/owner/health', (req, res) => {
+  const os = require('os');
+  const { DateTime } = require('luxon');
+  
+  const cpu = Math.min(100, Math.round((os.loadavg()[0] / os.cpus().length) * 100));
+  const ramUsed = Math.round(process.memoryUsage().rss / 1024 / 1024);
+  const ramTotal = Math.round(os.totalmem() / 1024 / 1024 / 1024);
+  const uptime = process.uptime(); // in seconds
+  
+  let dbStatus = 'OK';
+  try {
+    db.prepare('SELECT 1').get();
+  } catch (err) {
+    dbStatus = `Error: ${err.message}`;
+  }
+
+  res.json({
+    status: 'online',
+    cpu_percent: cpu,
+    ram_used_mb: ramUsed,
+    ram_total_gb: ramTotal,
+    uptime_seconds: uptime,
+    database_status: dbStatus,
+    server_time: DateTime.now().setZone(TIMEZONE).toFormat('dd-MM-yyyy HH:mm')
+  });
+});
+
 // --- ADDED ENDPOINTS FOR PARTICIPANTS, COMMANDS, TODOS, AND RENTAL FLOW ---
 
 // Helper function to resolve invite code, join group, resolve JID, and notify
