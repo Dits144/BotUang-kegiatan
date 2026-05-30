@@ -423,7 +423,8 @@ router.get('/groups/:groupId/settings', (req, res) => {
     participants_header: row?.header_text || '',
     rental_status: rental?.is_active ? 'active' : 'inactive',
     timezone: TIMEZONE,
-    pin: rental?.password || ''
+    pin: rental?.password || '',
+    typo_enabled: row ? row.typo_enabled !== 0 : true
   });
 });
 
@@ -439,7 +440,8 @@ router.post('/groups/:groupId/settings/generate-pin', (req, res) => {
 });
 
 router.put('/groups/:groupId/settings', (req, res) => {
-  const { header_text, weather_location, typo_enabled } = req.body;
+  const { weather_location, typo_enabled } = req.body;
+  const header_text = req.body.header_text !== undefined ? req.body.header_text : req.body.participants_header;
   const groupId = req.params.groupId;
   
   db.prepare(`
@@ -450,7 +452,7 @@ router.put('/groups/:groupId/settings', (req, res) => {
       weather_location=excluded.weather_location,
       typo_enabled=excluded.typo_enabled,
       updated_at=excluded.updated_at
-  `).run(groupId, header_text, weather_location, typo_enabled ? 1 : 0, nowIso());
+  `).run(groupId, header_text || '', weather_location || '', typo_enabled ? 1 : 0, nowIso());
   
   res.json({ success: true, message: 'Settings updated' });
 });

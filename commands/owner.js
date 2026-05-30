@@ -22,6 +22,13 @@ function getHealthText() {
   const uptime = formatDuration(process.uptime());
   const now = DateTime.now().setZone(TIMEZONE).toFormat('dd-MM-yyyy HH:mm');
 
+  let dbStatus = '✅ Stabil (SQLite: OK)';
+  try {
+    db.prepare('SELECT 1').get();
+  } catch (err) {
+    dbStatus = `❌ Error (${err.message})`;
+  }
+
   let status = '✅ Kondisi server aman';
   if (cpu >= 70 && cpu <= 85) status = '⚠️ CPU waspada, mohon cek beban server.';
   if (cpu > 85) status = '⚠️ CPU sedang tinggi, mohon cek beban server.';
@@ -33,6 +40,7 @@ function getHealthText() {
     `🖥 CPU: ${cpu}%`,
     `📦 RAM: ${ramUsed} MB / ${ramTotal} GB`,
     `⏱ Uptime: ${uptime}`,
+    `💾 Database: ${dbStatus}`,
     `🕒 Server Time: ${now} WIB`,
     '',
     status
@@ -49,7 +57,7 @@ async function handleBroadcast(sock, message) {
   const payload = m[1].trim();
   if (!payload) return 'Pesan broadcast tidak boleh kosong.';
 
-  const groups = db.prepare('SELECT DISTINCT group_id FROM group_rentals').all().map((r) => r.group_id);
+  const groups = db.prepare('SELECT DISTINCT group_id FROM group_rentals WHERE is_active=1').all().map((r) => r.group_id);
   let success = 0; let failed = 0;
   for (const gid of groups) {
     try {
@@ -60,7 +68,7 @@ async function handleBroadcast(sock, message) {
       console.error('Broadcast gagal ke', gid, e.message);
     }
   }
-  return ['✅ Broadcast berhasil dikirim', `Total grup: ${groups.length}`, `Berhasil: ${success}`, `Gagal: ${failed}`].join('\n');
+  return ['✅ Broadcast berhasil dikirim', `Total grup aktif: ${groups.length}`, `Berhasil: ${success}`, `Gagal: ${failed}`].join('\n');
 }
 
 async function handleBrdcs(sock, message) {
