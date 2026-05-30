@@ -141,6 +141,7 @@ ensureColumn('reminders', 'created_by', 'created_by TEXT');
 ensureColumn('group_rentals', 'last_h1_warning_at', 'last_h1_warning_at TEXT');
 ensureColumn('group_rentals', 'password', 'password TEXT');
 ensureColumn('dashboard_tokens', 'pin_verified', 'pin_verified INTEGER NOT NULL DEFAULT 0');
+ensureColumn('group_rentals', 'group_name', 'group_name TEXT');
 
 
 function nowWibIso() {

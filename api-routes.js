@@ -131,11 +131,17 @@ async function fetchMergedGroups(sock) {
           remaining_days = Math.max(0, Math.ceil(exp.diff(now, 'days').days));
         }
       }
+
+      // Cache group name if fetched name is newer
+      if (meta.subject && meta.subject !== r.group_name) {
+        db.prepare('UPDATE group_rentals SET group_name = ? WHERE group_id = ?').run(meta.subject, jid);
+        r.group_name = meta.subject;
+      }
     }
 
     merged.push({
       group_id: jid,
-      group_name: meta.subject || jid,
+      group_name: meta.subject || (r && r.group_name) || jid,
       rental_status: is_active ? 'active' : 'inactive',
       expire_at: expire_at,
       remaining_days: remaining_days,
@@ -163,7 +169,7 @@ async function fetchMergedGroups(sock) {
 
     merged.push({
       group_id: jid,
-      group_name: jid,
+      group_name: r.group_name || jid,
       rental_status: is_active ? 'active' : 'inactive',
       expire_at: expire_at,
       remaining_days: remaining_days,
@@ -312,8 +318,71 @@ router.get('/owner/groups', async (req, res) => {
   }
 });
 
+router.get('/owner/db-stats', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  const dbPath = path.resolve(__dirname, './db/finance.sqlite');
+  
+  let databaseSizeKb = 0;
+  if (fs.existsSync(dbPath)) {
+    databaseSizeKb = Math.round(fs.statSync(dbPath).size / 1024);
+  }
+
+  try {
+    // Get breakdown of records per group
+    const txCounts = db.prepare('SELECT group_id, COUNT(*) as count FROM transactions WHERE deleted_at IS NULL GROUP BY group_id').all();
+    const partCounts = db.prepare('SELECT group_id, COUNT(*) as count FROM participants WHERE deleted_at IS NULL GROUP BY group_id').all();
+    const cmdCounts = db.prepare('SELECT group_id, COUNT(*) as count FROM custom_commands WHERE deleted_at IS NULL GROUP BY group_id').all();
+    const remindCounts = db.prepare('SELECT group_id, COUNT(*) as count FROM reminders WHERE deleted_at IS NULL GROUP BY group_id').all();
+    const todoCounts = db.prepare('SELECT group_id, COUNT(*) as count FROM todos WHERE deleted_at IS NULL GROUP BY group_id').all();
+
+    const statsMap = {};
+    
+    const getOrInit = (gid) => {
+      if (!statsMap[gid]) {
+        statsMap[gid] = {
+          transactions: 0,
+          participants: 0,
+          commands: 0,
+          reminders: 0,
+          todos: 0
+        };
+      }
+      return statsMap[gid];
+    };
+
+    txCounts.forEach(r => getOrInit(r.group_id).transactions = r.count);
+    partCounts.forEach(r => getOrInit(r.group_id).participants = r.count);
+    cmdCounts.forEach(r => getOrInit(r.group_id).commands = r.count);
+    remindCounts.forEach(r => getOrInit(r.group_id).reminders = r.count);
+    todoCounts.forEach(r => getOrInit(r.group_id).todos = r.count);
+
+    // Compile stats
+    const groupsStats = {};
+    for (const [gid, item] of Object.entries(statsMap)) {
+      const totalRecords = item.transactions + item.participants + item.commands + item.reminders + item.todos;
+      // Estimate 0.2KB per record + 1KB base
+      const estSizeKb = parseFloat((1 + totalRecords * 0.2).toFixed(2));
+      
+      groupsStats[gid] = {
+        ...item,
+        total_records: totalRecords,
+        estimated_size_kb: estSizeKb
+      };
+    }
+
+    res.json({
+      database_size_kb: databaseSizeKb,
+      groups_stats: groupsStats
+    });
+  } catch (error) {
+    console.error('[API] Error getting db stats:', error);
+    res.status(500).json({ error: 'Failed to fetch database stats', message: error.message });
+  }
+});
+
 // --- GROUP DASHBOARD DATA ---
-router.get('/groups/:groupId', (req, res) => {
+router.get('/groups/:groupId', async (req, res) => {
   const groupId = req.params.groupId;
   const rental = db.prepare('SELECT * FROM group_rentals WHERE group_id = ?').get(groupId);
   if (!rental) return res.status(404).json({ error: 'Group not found' });
@@ -322,9 +391,23 @@ router.get('/groups/:groupId', (req, res) => {
   const income = db.prepare(`SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE group_id=? AND type='income' AND deleted_at IS NULL`).get(groupId).total;
   const expense = db.prepare(`SELECT COALESCE(SUM(amount),0) as total FROM transactions WHERE group_id=? AND type='expense' AND deleted_at IS NULL`).get(groupId).total;
 
+  let groupName = rental.group_name || 'Grup Keuangan';
+  const sock = req.app.get('sock');
+  if (sock) {
+    try {
+      const allGroups = await sock.groupFetchAllParticipating();
+      if (allGroups[groupId]) {
+        groupName = allGroups[groupId].subject || groupName;
+        if (groupName !== rental.group_name) {
+          db.prepare('UPDATE group_rentals SET group_name = ? WHERE group_id = ?').run(groupName, groupId);
+        }
+      }
+    } catch (e) {}
+  }
+
   res.json({
     id: rental.group_id,
-    name: 'Grup Keuangan',
+    name: groupName,
     status: rental.is_active ? 'active' : 'inactive',
     expired_at: rental.expire_at,
     balance: income - expense
