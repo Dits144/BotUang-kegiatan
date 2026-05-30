@@ -65,4 +65,71 @@ function handleCekSewa(ctx) {
   ].join('\n');
 }
 
-module.exports = { isRentalActive, shouldWarnExpiring, handleCekSewa };
+/* ─── Admin cek / set PIN dashboard grup ─── */
+function handlePinCommand(ctx, canAdminManage) {
+  const text = ctx.text.trim();
+  const isPin = /^pin$/i.test(text);
+  const isSetPin = /^setpin(\s+(.+))?$/i.test(text);
+  
+  if (!isPin && !isSetPin) return null;
+
+  if (!canAdminManage) {
+    return '❌ Anda tidak memiliki akses untuk perintah ini.';
+  }
+
+  const rental = getRental(ctx.groupId);
+  if (!rental) {
+    return '❌ Grup ini belum terdaftar di sistem sewa.';
+  }
+
+  if (isPin) {
+    if (rental.password) {
+      return [
+        '🔐 *PIN / PASSWORD GRUP*',
+        '',
+        `PIN saat ini: *${rental.password}*`,
+        '',
+        'Gunakan PIN ini untuk masuk ke dashboard manual di web.',
+        'Ketik *setpin* untuk generate PIN baru secara acak.'
+      ].join('\n');
+    } else {
+      // Generate new one automatically
+      const newPin = Math.floor(100000 + Math.random() * 900000).toString();
+      db.prepare('UPDATE group_rentals SET password = ? WHERE group_id = ?').run(newPin, ctx.groupId);
+      return [
+        '🔐 *PIN / PASSWORD GRUP BARU*',
+        '',
+        `PIN berhasil dibuat: *${newPin}*`,
+        '',
+        'Gunakan PIN ini untuk masuk ke dashboard manual di web.'
+      ].join('\n');
+    }
+  }
+
+  if (isSetPin) {
+    const match = text.match(/^setpin\s+(.+)$/i);
+    let newPin = '';
+    if (match && match[1]) {
+      newPin = match[1].trim();
+      if (newPin.length < 4 || newPin.length > 20) {
+        return '❌ PIN / Password baru harus terdiri dari 4 sampai 20 karakter.';
+      }
+    } else {
+      // Generate random
+      newPin = Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    db.prepare('UPDATE group_rentals SET password = ? WHERE group_id = ?').run(newPin, ctx.groupId);
+    return [
+      '🔐 *PIN / PASSWORD GRUP BERHASIL DIUPDATE*',
+      '',
+      `PIN baru: *${newPin}*`,
+      '',
+      'Gunakan PIN ini untuk masuk ke dashboard manual di web.'
+    ].join('\n');
+  }
+
+  return null;
+}
+
+module.exports = { isRentalActive, shouldWarnExpiring, handleCekSewa, handlePinCommand };

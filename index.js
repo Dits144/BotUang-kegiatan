@@ -16,7 +16,7 @@ const reminder = require('./commands/reminder');
 const todo = require('./commands/todo');
 const weather = require('./commands/weather');
 const { handleOwnerCommand } = require('./commands/owner');
-const { isRentalActive, shouldWarnExpiring, handleCekSewa } = require('./commands/rental');
+const { isRentalActive, shouldWarnExpiring, handleCekSewa, handlePinCommand } = require('./commands/rental');
 const { suggestCommand } = require('./utils/typo');
 const { handleClearAll } = require('./commands/adminTools');
 const { infoGroup } = require('./commands/info');
@@ -307,7 +307,7 @@ async function start() {
         || /^todolist$/i.test(text)
         || /^todo\s+lihat$/i.test(text);
 
-      const adminCommands = /^(menu|help|[+-]|inputtransaksi|saldo(\s|$)|edit\s*|hapus\s*|detail\s*|addpeserta\s*|delpeserta\s*|updatepeserta\s*|setheader\s*|command\s*|update\s*command\s*|updatecommand\s*|delcommand\s*|listcommand$|detailcommand\s+|remind\s*|listremind$|noremind\s*|todo\s*|doto\s*|lokweather\s*|clearall\s*|typo\s*|ceksewa$|cekaktif$)/i.test(text);
+      const adminCommands = /^(menu|help|[+-]|inputtransaksi|saldo(\s|$)|edit\s*|hapus\s*|detail\s*|addpeserta\s*|delpeserta\s*|updatepeserta\s*|setheader\s*|command\s*|update\s*command\s*|updatecommand\s*|delcommand\s*|listcommand$|detailcommand\s+|remind\s*|listremind$|noremind\s*|todo\s*|doto\s*|lokweather\s*|clearall\s*|typo\s*|ceksewa$|cekaktif$|pin$|setpin$|setpin\s+.*)/i.test(text);
       if (!canAdminManage && adminCommands && !userAllowed) {
         await sock.sendMessage(groupId, { text: '❌ Anda tidak memiliki akses untuk perintah ini.' }, { quoted: msg });
         return;
@@ -349,7 +349,8 @@ async function start() {
         () => todo.handleTodo(ctx, canAdminManage),
         () => weather.handleSetLocation(ctx, canAdminManage),
         () => weather.handleWeather(ctx),
-        () => handleCekSewa(ctx)
+        () => handleCekSewa(ctx),
+        () => handlePinCommand(ctx, canAdminManage)
       ];
 
       for (const fn of handlers) {

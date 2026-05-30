@@ -86,11 +86,34 @@ async function fetchMergedGroups(sock) {
     }
   }
 
+  // Get active BotStore JIDs to filter out
+  const botStoreJids = new Set();
+  const fs = require('fs');
+  const path = require('path');
+  const botStoreDbPath = path.resolve(__dirname, '../BotStore/data/botstore.sqlite');
+  if (fs.existsSync(botStoreDbPath)) {
+    try {
+      const Database = require('better-sqlite3');
+      const storeDb = new Database(botStoreDbPath, { readonly: true });
+      const activeStoreRentals = storeDb.prepare("SELECT group_id, expired_at FROM rentals WHERE is_active = 1").all();
+      const nowIso = new Date().toISOString();
+      for (const r of activeStoreRentals) {
+        if (r.expired_at > nowIso) {
+          botStoreJids.add(r.group_id);
+        }
+      }
+      storeDb.close();
+    } catch (err) {
+      console.error('[API] Failed to query BotStore rentals:', err.message);
+    }
+  }
+
   const rentalMap = new Map(rentals.map(r => [r.group_id, r]));
   const merged = [];
 
   // Process groups bot is currently participating in
   for (const jid of Object.keys(allGroups)) {
+    if (botStoreJids.has(jid)) continue; // Exclude active BotStore group!
     const meta = allGroups[jid];
     const r = rentalMap.get(jid);
     
@@ -124,6 +147,7 @@ async function fetchMergedGroups(sock) {
 
   // Process groups that bot left or isn't in, but has rental record
   for (const [jid, r] of rentalMap.entries()) {
+    if (botStoreJids.has(jid)) continue; // Exclude active BotStore group!
     let is_active = false;
     let expire_at = r.expire_at;
     let remaining_days = 0;
@@ -214,6 +238,57 @@ router.post('/groups/:groupId/connect/validate', (req, res) => {
   });
 });
 
+// --- MANUAL JID + PIN LOGIN ---
+router.post('/groups/:groupId/connect/pin', async (req, res) => {
+  const groupId = req.params.groupId;
+  const { password } = req.body;
+
+  if (!groupId || !password) {
+    return res.status(400).json({ success: false, error: 'JID Grup dan PIN/Password wajib diisi.' });
+  }
+
+  const rental = db.prepare('SELECT * FROM group_rentals WHERE group_id = ?').get(groupId);
+  if (!rental) {
+    return res.status(404).json({ success: false, error: 'Grup tidak terdaftar atau tidak ditemukan di sistem sewa.' });
+  }
+
+  if (!rental.password) {
+    return res.status(400).json({ success: false, error: 'Grup ini belum memiliki PIN/Password. Silakan generate PIN terlebih dahulu lewat bot WhatsApp dengan perintah "pin".' });
+  }
+
+  if (rental.password !== password) {
+    return res.status(401).json({ success: false, error: 'PIN / Password salah! Silakan coba lagi.' });
+  }
+
+  // Generate a long-lived dashboard token (e.g. 30 days)
+  const sessionToken = crypto.randomBytes(16).toString('hex');
+  const expiresAt = DateTime.now().setZone(TIMEZONE).plus({ days: 30 }).toISO();
+
+  db.prepare('INSERT INTO dashboard_tokens (token, group_id, created_at, expires_at, pin_verified) VALUES (?, ?, ?, ?, 1)')
+    .run(sessionToken, groupId, nowIso(), expiresAt);
+
+  // Try to find the group name from Baileys
+  let groupName = 'Grup Keuangan';
+  const sock = req.app.get('sock');
+  if (sock) {
+    try {
+      const allGroups = await sock.groupFetchAllParticipating();
+      if (allGroups[groupId]) {
+        groupName = allGroups[groupId].subject || groupName;
+      }
+    } catch (e) {}
+  }
+
+  return res.json({
+    success: true,
+    token: sessionToken,
+    group: {
+      id: groupId,
+      name: groupName
+    }
+  });
+});
+
 // --- OWNER / GLOBAL GROUPS ---
 router.get('/groups', async (req, res) => {
   try {
@@ -264,8 +339,20 @@ router.get('/groups/:groupId/settings', (req, res) => {
     weather_location: row?.weather_location || '',
     participants_header: row?.header_text || '',
     rental_status: rental?.is_active ? 'active' : 'inactive',
-    timezone: TIMEZONE
+    timezone: TIMEZONE,
+    pin: rental?.password || ''
   });
+});
+
+router.post('/groups/:groupId/settings/generate-pin', (req, res) => {
+  const groupId = req.params.groupId;
+  
+  // Generate random 6 digit numeric PIN
+  const newPin = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  db.prepare('UPDATE group_rentals SET password = ? WHERE group_id = ?').run(newPin, groupId);
+  
+  res.json({ success: true, pin: newPin });
 });
 
 router.put('/groups/:groupId/settings', (req, res) => {

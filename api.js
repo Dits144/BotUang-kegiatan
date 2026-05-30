@@ -21,7 +21,8 @@ function startApi(sock) {
       req.path === '/connect' ||
       req.path === '/connect/verify' ||
       (req.path === '/api/owner/qris' && req.method === 'GET') ||
-      req.path.endsWith('/connect/validate')
+      req.path.endsWith('/connect/validate') ||
+      req.path.endsWith('/connect/pin')
     ) {
       return next();
     }
