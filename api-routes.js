@@ -543,12 +543,21 @@ router.get('/groups/:groupId/participants', (req, res) => {
 
 router.get('/groups/:groupId/commands', (req, res) => {
   const rows = db.prepare('SELECT * FROM custom_commands WHERE group_id=? AND deleted_at IS NULL ORDER BY created_at ASC').all(req.params.groupId);
-  const commands = rows.map(r => ({
-    id: String(r.id),
-    keyword: r.keyword,
-    response: r.response,
-    image_url: r.media_path
-  }));
+  const commands = rows.map(r => {
+    let imageUrl = r.media_path;
+    if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+      const match = imageUrl.match(/(uploads|media)[/\\][^/\\]+$/);
+      if (match) {
+        imageUrl = `./${match[0].replace(/\\/g, '/')}`;
+      }
+    }
+    return {
+      id: String(r.id),
+      keyword: r.keyword,
+      response: r.response,
+      image_url: imageUrl
+    };
+  });
   res.json(commands);
 });
 
@@ -989,23 +998,52 @@ router.post('/groups/:groupId/commands', (req, res) => {
     const groupId = req.params.groupId;
     if (!keyword || !response) return res.status(400).json({ error: 'Keyword and response are required' });
 
+    const fs = require('fs');
+    const path = require('path');
+    let finalPath = image_url || null;
+    let mediaType = null;
+
+    if (image_url) {
+      if (image_url.startsWith('data:image/')) {
+        const matches = image_url.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          const ext = matches[1].split('/')[1] || 'png';
+          const buffer = Buffer.from(matches[2], 'base64');
+          const uploadsDir = path.join(__dirname, 'uploads');
+          if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+          }
+          const filename = `cmd_${groupId.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.${ext}`;
+          const filePath = path.join(uploadsDir, filename);
+          fs.writeFileSync(filePath, buffer);
+          finalPath = `./uploads/${filename}`;
+          mediaType = 'image';
+        }
+      } else {
+        finalPath = image_url;
+        mediaType = 'image';
+      }
+    }
+
     const now = nowIso();
     const info = db.prepare(`
-      INSERT INTO custom_commands (group_id, keyword, response, media_path, created_at, updated_at) 
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO custom_commands (group_id, keyword, response, media_path, media_type, caption_text, created_at, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(group_id, keyword) DO UPDATE SET
         response = excluded.response,
         media_path = excluded.media_path,
+        media_type = excluded.media_type,
+        caption_text = excluded.response,
         deleted_at = NULL,
         updated_at = excluded.updated_at
-    `).run(groupId, keyword, response, image_url || null, now, now);
+    `).run(groupId, keyword, response, finalPath, mediaType, response, now, now);
 
     console.log(`[API] Created/Updated custom command for ${keyword} in group ${groupId}`);
     res.json({
       id: String(info.lastInsertRowid || 0),
       keyword,
       response,
-      image_url: image_url || null
+      image_url: finalPath
     });
   } catch (error) {
     console.error('[API] Error in POST /commands:', error);
@@ -1020,8 +1058,35 @@ router.put('/groups/:groupId/commands/:id', (req, res) => {
     const id = req.params.id;
     if (!keyword || !response) return res.status(400).json({ error: 'Keyword and response are required' });
 
+    const fs = require('fs');
+    const path = require('path');
+    let finalPath = image_url || null;
+    let mediaType = null;
+
+    if (image_url) {
+      if (image_url.startsWith('data:image/')) {
+        const matches = image_url.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          const ext = matches[1].split('/')[1] || 'png';
+          const buffer = Buffer.from(matches[2], 'base64');
+          const uploadsDir = path.join(__dirname, 'uploads');
+          if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+          }
+          const filename = `cmd_${groupId.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.${ext}`;
+          const filePath = path.join(uploadsDir, filename);
+          fs.writeFileSync(filePath, buffer);
+          finalPath = `./uploads/${filename}`;
+          mediaType = 'image';
+        }
+      } else {
+        finalPath = image_url;
+        mediaType = 'image';
+      }
+    }
+
     const now = nowIso();
-    const result = db.prepare('UPDATE custom_commands SET keyword = ?, response = ?, media_path = ?, updated_at = ? WHERE id = ? AND group_id = ? AND deleted_at IS NULL').run(keyword, response, image_url || null, now, id, groupId);
+    const result = db.prepare('UPDATE custom_commands SET keyword = ?, response = ?, media_path = ?, media_type = ?, caption_text = ?, updated_at = ? WHERE id = ? AND group_id = ? AND deleted_at IS NULL').run(keyword, response, finalPath, mediaType, response, now, id, groupId);
 
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Command not found' });
@@ -1032,7 +1097,7 @@ router.put('/groups/:groupId/commands/:id', (req, res) => {
       id: String(id),
       keyword,
       response,
-      image_url: image_url || null
+      image_url: finalPath
     });
   } catch (error) {
     console.error('[API] Error in PUT /commands/:id:', error);

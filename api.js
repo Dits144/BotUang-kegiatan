@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 function startApi(sock) {
   const app = express();
@@ -10,6 +11,10 @@ function startApi(sock) {
   app.use(express.json({ limit: '50mb' }));
 
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+  // Serve static folders for uploaded files & bot media
+  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+  app.use('/media', express.static(path.join(__dirname, 'media')));
 
   // Authentication middleware
   app.use((req, res, next) => {
