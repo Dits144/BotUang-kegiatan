@@ -29,9 +29,9 @@ function parseRemind(raw) {
   const text  = m[2].trim();
   if (!when || !text) return null;
 
-  if (/^\d{2}[:.]\d{2}$/.test(when))                         return { type: 'time',     value: when.replace('.', ':'), text };
+  if (/^\d{2}:\d{2}$/.test(when))                         return { type: 'time',     value: when, text };
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(when))                 return { type: 'date',     value: when, text };
-  if (/^\d{2}[:.]\d{2}&\d{2}\/\d{2}\/\d{4}$/.test(when))    return { type: 'datetime', value: when.replace('.', ':'), text };
+  if (/^\d{2}:\d{2}&\d{2}\/\d{2}\/\d{4}$/.test(when))    return { type: 'datetime', value: when, text };
   return { error: 'Format waktu/tanggal salah.' };
 }
 
@@ -61,7 +61,7 @@ function handleRemind(ctx, canManage) {
   return [
     '✅ *Reminder Disimpan*',
     '',
-    `${typeLabel}: ${parsed.value.replace(/:/g, '.')}`,
+    `${typeLabel}: ${parsed.value}`,
     `📝 Pesan: ${parsed.text}`
   ].join('\n');
 }
@@ -78,7 +78,7 @@ function handleListRemind(ctx) {
   if (!rows.length) return '📭 Belum ada reminder aktif.';
 
   const typeEmoji = { time: '⏰', date: '📅', datetime: '📅⏰' };
-  const lines = rows.map((r, i) => `${i + 1}) ${typeEmoji[r.remind_type] || '🔔'} ${r.remind_value.replace(/:/g, '.')} | ${r.remind_text}`);
+  const lines = rows.map((r, i) => `${i + 1}) ${typeEmoji[r.remind_type] || '🔔'} ${r.remind_value} | ${r.remind_text}`);
   return ['⏰ *LIST REMINDER AKTIF*', '', ...lines].join('\n');
 }
 
@@ -89,13 +89,12 @@ function handleNoRemind(ctx, canManage) {
 
   const value = m[1].trim();
   if (!value) return 'Format salah. Contoh: noremind 05:00 atau noremind 17/08/2026';
-  const dbValue = value.replace(/\./g, ':');
 
   const res = db.prepare(`
     UPDATE reminders
     SET deleted_at=?
     WHERE group_id=? AND remind_value=? AND deleted_at IS NULL
-  `).run(nowIso(), ctx.groupId, dbValue);
+  `).run(nowIso(), ctx.groupId, value);
 
   if (!res.changes) return `❌ Reminder "${value}" tidak ditemukan.`;
   return `🗑️ Reminder *${value}* berhasil dihapus.`;

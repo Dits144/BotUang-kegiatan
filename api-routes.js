@@ -30,23 +30,49 @@ function parseSchedule(scheduleStr) {
   // check if it starts with "time ", "date ", "datetime " prefix
   const prefixMatch = str.match(/^(time|date|datetime)\s+(.+)$/i);
   if (prefixMatch) {
+    const type = prefixMatch[1].toLowerCase();
+    const val = prefixMatch[2].trim();
+    
+    if (type === 'datetime') {
+      if (/^\d{2}:\d{2}&\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+        return { type, value: val };
+      }
+      try {
+        const dt = DateTime.fromISO(val);
+        if (dt.isValid) {
+          const hhmm = dt.toFormat('HH:mm');
+          const ddmmyyyy = dt.toFormat('dd/MM/yyyy');
+          return { type: 'datetime', value: `${hhmm}&${ddmmyyyy}` };
+        }
+      } catch (e) {}
+      try {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) {
+          const dt = DateTime.fromJSDate(d).setZone(TIMEZONE);
+          const hhmm = dt.toFormat('HH:mm');
+          const ddmmyyyy = dt.toFormat('dd/MM/yyyy');
+          return { type: 'datetime', value: `${hhmm}&${ddmmyyyy}` };
+        }
+      } catch (e) {}
+    }
+    
     return {
-      type: prefixMatch[1].toLowerCase(),
-      value: prefixMatch[2].trim()
+      type,
+      value: val
     };
   }
 
-  // check if format is HH:MM or HH.MM
-  if (/^\d{2}[:.]\d{2}$/.test(str)) {
-    return { type: 'time', value: str.replace('.', ':') };
+  // check if format is HH:MM
+  if (/^\d{2}:\d{2}$/.test(str)) {
+    return { type: 'time', value: str };
   }
   // check if format is DD/MM/YYYY
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
     return { type: 'date', value: str };
   }
-  // check if format is HH:MM&DD/MM/YYYY or HH.MM&DD/MM/YYYY
-  if (/^\d{2}[:.]\d{2}&\d{2}\/\d{2}\/\d{4}$/.test(str)) {
-    return { type: 'datetime', value: str.replace('.', ':') };
+  // check if format is HH:MM&DD/MM/YYYY
+  if (/^\d{2}:\d{2}&\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+    return { type: 'datetime', value: str };
   }
 
   // Try parsing as ISO datetime
@@ -822,7 +848,7 @@ router.get('/owner/health', (req, res) => {
     ram_total_gb: ramTotal,
     uptime_seconds: uptime,
     database_status: dbStatus,
-    server_time: DateTime.now().setZone(TIMEZONE).toFormat('dd-MM-yyyy HH.mm')
+    server_time: DateTime.now().setZone(TIMEZONE).toFormat('dd-MM-yyyy HH:mm')
   });
 });
 

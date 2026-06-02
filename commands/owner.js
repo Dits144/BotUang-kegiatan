@@ -20,7 +20,7 @@ function getHealthText() {
   const ramUsed = Math.round(process.memoryUsage().rss / 1024 / 1024);
   const ramTotal = Math.round(os.totalmem() / 1024 / 1024 / 1024);
   const uptime = formatDuration(process.uptime());
-  const now = DateTime.now().setZone(TIMEZONE).toFormat('dd-MM-yyyy HH.mm');
+  const now = DateTime.now().setZone(TIMEZONE).toFormat('dd-MM-yyyy HH:mm');
 
   let dbStatus = '✅ Stabil (SQLite: OK)';
   try {

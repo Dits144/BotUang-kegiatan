@@ -9,7 +9,7 @@ function formatWib(iso, withTime = true) {
   if (!iso) return '-';
   const dt = DateTime.fromISO(iso, { zone: TIMEZONE });
   if (!dt.isValid) return iso;
-  return withTime ? dt.toFormat('dd-MM-yyyy HH.mm') : dt.toFormat('dd-MM-yyyy');
+  return withTime ? dt.toFormat('dd-MM-yyyy HH:mm') : dt.toFormat('dd-MM-yyyy');
 }
 
 function parseIsoDateRange(text) {
