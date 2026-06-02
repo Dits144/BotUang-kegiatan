@@ -483,6 +483,23 @@ router.delete('/groups/:groupId/transactions/:id', (req, res) => {
   res.json({ success: true, message: 'Transaction deleted' });
 });
 
+router.put('/groups/:groupId/transactions/:id', (req, res) => {
+  const { type, amount, note } = req.body;
+  const tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND group_id = ? AND deleted_at IS NULL').get(req.params.id, req.params.groupId);
+  if (!tx) {
+    return res.status(404).json({ error: 'Transaction not found or does not belong to this group' });
+  }
+  const { updateTransaction } = require('./db/database');
+  updateTransaction({
+    id: req.params.id,
+    type,
+    amount,
+    note,
+    edited_at: nowIso()
+  });
+  res.json({ success: true, message: 'Transaction updated' });
+});
+
 router.get('/groups/:groupId/participants', (req, res) => {
   const rows = db.prepare('SELECT * FROM participants WHERE group_id=? AND deleted_at IS NULL ORDER BY created_at ASC').all(req.params.groupId);
   const participants = rows.map(r => {
