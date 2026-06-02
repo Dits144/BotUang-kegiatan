@@ -1,0 +1,3 @@
+[submodule "wabot-dashboard"]
+	path = wabot-dashboard
+	url = git@github.com:144dits-del/wabot-dashboard.git
