@@ -36,17 +36,17 @@ function parseSchedule(scheduleStr) {
     };
   }
 
-  // check if format is HH:MM
-  if (/^\d{2}:\d{2}$/.test(str)) {
-    return { type: 'time', value: str };
+  // check if format is HH:MM or HH.MM
+  if (/^\d{2}[:.]\d{2}$/.test(str)) {
+    return { type: 'time', value: str.replace('.', ':') };
   }
   // check if format is DD/MM/YYYY
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
     return { type: 'date', value: str };
   }
-  // check if format is HH:MM&DD/MM/YYYY
-  if (/^\d{2}:\d{2}&\d{2}\/\d{2}\/\d{4}$/.test(str)) {
-    return { type: 'datetime', value: str };
+  // check if format is HH:MM&DD/MM/YYYY or HH.MM&DD/MM/YYYY
+  if (/^\d{2}[:.]\d{2}&\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+    return { type: 'datetime', value: str.replace('.', ':') };
   }
 
   // Try parsing as ISO datetime
@@ -822,7 +822,7 @@ router.get('/owner/health', (req, res) => {
     ram_total_gb: ramTotal,
     uptime_seconds: uptime,
     database_status: dbStatus,
-    server_time: DateTime.now().setZone(TIMEZONE).toFormat('dd-MM-yyyy HH:mm')
+    server_time: DateTime.now().setZone(TIMEZONE).toFormat('dd-MM-yyyy HH.mm')
   });
 });
 
