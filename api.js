@@ -55,7 +55,7 @@ function startApi(sock) {
       const { TIMEZONE } = require('./config');
       const nowIso = DateTime.now().setZone(TIMEZONE).toISO();
       
-      const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND pin_verified = 1 AND datetime(expires_at) > datetime(?)')
+      const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND (pin_verified = 1 OR datetime(expires_at) > datetime(?))')
         .get(token, groupId, nowIso);
         
       if (validToken) {
@@ -78,7 +78,7 @@ function startApi(sock) {
     const { TIMEZONE } = require('./config');
     const nowIso = DateTime.now().setZone(TIMEZONE).toISO();
 
-    const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND datetime(expires_at) > datetime(?)')
+    const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND (pin_verified = 1 OR datetime(expires_at) > datetime(?))')
       .get(token, group_id, nowIso);
 
     if (!validToken) {
@@ -102,8 +102,9 @@ function startApi(sock) {
     const isAlreadyVerified = cookies[`verified_${group_id}`] === 'true';
 
     if (isAlreadyVerified) {
-      // Auto-login! Mark token as verified
-      db.prepare('UPDATE dashboard_tokens SET pin_verified = 1 WHERE token = ?').run(token);
+      // Auto-login! Mark token as verified and extend to 10 years
+      const farFuture = DateTime.now().setZone(TIMEZONE).plus({ years: 10 }).toISO();
+      db.prepare('UPDATE dashboard_tokens SET pin_verified = 1, expires_at = ? WHERE token = ?').run(farFuture, token);
 
       // Redirect to Lovable dashboard
       const WEB_URL = process.env.LOVABLE_API_URL || 'https://wabot-dashboard.lovable.app';
@@ -333,7 +334,7 @@ function startApi(sock) {
     const { TIMEZONE } = require('./config');
     const nowIso = DateTime.now().setZone(TIMEZONE).toISO();
 
-    const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND datetime(expires_at) > datetime(?)')
+    const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND (pin_verified = 1 OR datetime(expires_at) > datetime(?))')
       .get(cleanToken, cleanGroupId, nowIso);
 
     if (!validToken) {
@@ -353,8 +354,9 @@ function startApi(sock) {
       }
     }
 
-    // Mark token as verified
-    db.prepare('UPDATE dashboard_tokens SET pin_verified = 1 WHERE token = ?').run(cleanToken);
+    // Mark token as verified and extend to 10 years
+    const farFuture = DateTime.now().setZone(TIMEZONE).plus({ years: 10 }).toISO();
+    db.prepare('UPDATE dashboard_tokens SET pin_verified = 1, expires_at = ? WHERE token = ?').run(farFuture, cleanToken);
 
     // Set auto-login cookie
     res.setHeader('Set-Cookie', `verified_${cleanGroupId}=true; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax`);

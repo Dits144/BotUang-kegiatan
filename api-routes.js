@@ -193,7 +193,7 @@ router.post('/groups/:groupId/connect/validate', (req, res) => {
   const { token, password } = req.body;
   if (!groupId || !token) return res.status(400).json({ success: false, error: 'Missing groupId or token' });
 
-  const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND datetime(expires_at) > datetime(?)').get(token, groupId, nowIso());
+  const validToken = db.prepare('SELECT * FROM dashboard_tokens WHERE token = ? AND group_id = ? AND (pin_verified = 1 OR datetime(expires_at) > datetime(?))').get(token, groupId, nowIso());
   
   if (!validToken) {
     return res.status(401).json({ success: false, error: 'Token akses tidak valid atau sudah kadaluarsa. Silakan ketik "dashboard" lagi di WhatsApp.' });
@@ -224,8 +224,9 @@ router.post('/groups/:groupId/connect/validate', (req, res) => {
       }
     }
 
-    // Mark token as verified
-    db.prepare('UPDATE dashboard_tokens SET pin_verified = 1 WHERE token = ?').run(token);
+    // Mark token as verified and extend to 10 years
+    const farFuture = DateTime.now().setZone(TIMEZONE).plus({ years: 10 }).toISO();
+    db.prepare('UPDATE dashboard_tokens SET pin_verified = 1, expires_at = ? WHERE token = ?').run(farFuture, token);
 
     return res.json({
       valid: true,
@@ -266,12 +267,12 @@ router.post('/groups/:groupId/connect/pin', async (req, res) => {
     return res.status(401).json({ success: false, error: 'PIN / Password salah! Silakan coba lagi.' });
   }
 
-  // Generate a long-lived dashboard token (e.g. 30 days)
+  // Generate a long-lived dashboard token (e.g. 10 years)
   const sessionToken = crypto.randomBytes(16).toString('hex');
-  const expiresAt = DateTime.now().setZone(TIMEZONE).plus({ days: 30 }).toISO();
+  const farFuture = DateTime.now().setZone(TIMEZONE).plus({ years: 10 }).toISO();
 
   db.prepare('INSERT INTO dashboard_tokens (token, group_id, created_at, expires_at, pin_verified) VALUES (?, ?, ?, ?, 1)')
-    .run(sessionToken, groupId, nowIso(), expiresAt);
+    .run(sessionToken, groupId, nowIso(), farFuture);
 
   // Try to find the group name from Baileys
   let groupName = 'Grup Keuangan';
