@@ -992,6 +992,32 @@ router.delete('/groups/:groupId/participants/:id', (req, res) => {
 });
 
 // 2. COMMANDS CRUD
+function getExtFromMime(mime, defaultExt = 'bin') {
+  const map = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'application/pdf': 'pdf',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/vnd.ms-excel': 'xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'application/zip': 'zip',
+    'application/x-rar-compressed': 'rar',
+    'text/plain': 'txt',
+    'text/csv': 'csv',
+    'audio/mpeg': 'mp3',
+    'audio/mp3': 'mp3',
+    'audio/wav': 'wav',
+    'audio/ogg': 'ogg',
+    'video/mp4': 'mp4',
+    'video/mpeg': 'mp4'
+  };
+  return map[mime] || mime.split('/')[1] || defaultExt;
+}
+
 router.post('/groups/:groupId/commands', (req, res) => {
   try {
     const { keyword, response, image_url } = req.body;
@@ -1004,10 +1030,11 @@ router.post('/groups/:groupId/commands', (req, res) => {
     let mediaType = null;
 
     if (image_url) {
-      if (image_url.startsWith('data:image/')) {
-        const matches = image_url.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (image_url.startsWith('data:')) {
+        const matches = image_url.match(/^data:([^;]+);base64,(.+)$/);
         if (matches && matches.length === 3) {
-          const ext = matches[1].split('/')[1] || 'png';
+          const mime = matches[1];
+          const ext = getExtFromMime(mime);
           const buffer = Buffer.from(matches[2], 'base64');
           const uploadsDir = path.join(__dirname, 'uploads');
           if (!fs.existsSync(uploadsDir)) {
@@ -1017,11 +1044,23 @@ router.post('/groups/:groupId/commands', (req, res) => {
           const filePath = path.join(uploadsDir, filename);
           fs.writeFileSync(filePath, buffer);
           finalPath = `./uploads/${filename}`;
-          mediaType = 'image';
+          
+          const extTypeMap = {
+            jpg: 'image', jpeg: 'image', png: 'image', gif: 'image', webp: 'image',
+            mp4: 'video', mkv: 'video', avi: 'video', mov: 'video',
+            mp3: 'audio', wav: 'audio', ogg: 'audio', m4a: 'audio'
+          };
+          mediaType = extTypeMap[ext] || 'document';
         }
       } else {
         finalPath = image_url;
-        mediaType = 'image';
+        const ext = image_url.split('.').pop().toLowerCase();
+        const extTypeMap = {
+          jpg: 'image', jpeg: 'image', png: 'image', gif: 'image', webp: 'image',
+          mp4: 'video', mkv: 'video', avi: 'video', mov: 'video',
+          mp3: 'audio', wav: 'audio', ogg: 'audio', m4a: 'audio'
+        };
+        mediaType = extTypeMap[ext] || 'document';
       }
     }
 
@@ -1064,10 +1103,11 @@ router.put('/groups/:groupId/commands/:id', (req, res) => {
     let mediaType = null;
 
     if (image_url) {
-      if (image_url.startsWith('data:image/')) {
-        const matches = image_url.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (image_url.startsWith('data:')) {
+        const matches = image_url.match(/^data:([^;]+);base64,(.+)$/);
         if (matches && matches.length === 3) {
-          const ext = matches[1].split('/')[1] || 'png';
+          const mime = matches[1];
+          const ext = getExtFromMime(mime);
           const buffer = Buffer.from(matches[2], 'base64');
           const uploadsDir = path.join(__dirname, 'uploads');
           if (!fs.existsSync(uploadsDir)) {
@@ -1077,11 +1117,23 @@ router.put('/groups/:groupId/commands/:id', (req, res) => {
           const filePath = path.join(uploadsDir, filename);
           fs.writeFileSync(filePath, buffer);
           finalPath = `./uploads/${filename}`;
-          mediaType = 'image';
+          
+          const extTypeMap = {
+            jpg: 'image', jpeg: 'image', png: 'image', gif: 'image', webp: 'image',
+            mp4: 'video', mkv: 'video', avi: 'video', mov: 'video',
+            mp3: 'audio', wav: 'audio', ogg: 'audio', m4a: 'audio'
+          };
+          mediaType = extTypeMap[ext] || 'document';
         }
       } else {
         finalPath = image_url;
-        mediaType = 'image';
+        const ext = image_url.split('.').pop().toLowerCase();
+        const extTypeMap = {
+          jpg: 'image', jpeg: 'image', png: 'image', gif: 'image', webp: 'image',
+          mp4: 'video', mkv: 'video', avi: 'video', mov: 'video',
+          mp3: 'audio', wav: 'audio', ogg: 'audio', m4a: 'audio'
+        };
+        mediaType = extTypeMap[ext] || 'document';
       }
     }
 

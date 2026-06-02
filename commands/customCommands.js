@@ -77,13 +77,67 @@ function handleDetailCommand(ctx) {
   return `📌 DETAIL COMMAND ${keyword}${row.media_type ? `\nMedia: ${row.media_type}` : ''}\n${row.response}`;
 }
 
+function getMimeType(filePath) {
+  const ext = filePath.split('.').pop().toLowerCase();
+  const mimes = {
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ppt: 'application/vnd.ms-powerpoint',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    zip: 'application/zip',
+    rar: 'application/x-rar-compressed',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    ogg: 'audio/ogg',
+    mp4: 'video/mp4',
+    mkv: 'video/x-matroska',
+    avi: 'video/x-msvideo',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp'
+  };
+  return mimes[ext] || 'application/octet-stream';
+}
+
+function getMediaType(filePath) {
+  const ext = filePath.split('.').pop().toLowerCase();
+  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+  const videoExts = ['mp4', 'mkv', 'avi', 'mov'];
+  const audioExts = ['mp3', 'wav', 'ogg', 'm4a'];
+  if (imageExts.includes(ext)) return 'image';
+  if (videoExts.includes(ext)) return 'video';
+  if (audioExts.includes(ext)) return 'audio';
+  return 'document';
+}
+
 function handleAutoResponse(ctx) {
   const keyword = normalizeKeyword(ctx.text);
   if (!keyword) return null;
   const row = db.prepare(`SELECT response, media_path, media_type, caption_text FROM custom_commands WHERE group_id=? AND keyword=? AND deleted_at IS NULL`).get(ctx.groupId, keyword);
   if (!row) return null;
-  if (row.media_type === 'image' && row.media_path && fs.existsSync(row.media_path)) {
-    return { type: 'image', caption: row.caption_text || row.response, imageBuffer: fs.readFileSync(row.media_path) };
+
+  if (row.media_path && fs.existsSync(row.media_path)) {
+    const mediaPath = row.media_path;
+    const mediaType = row.media_type || getMediaType(mediaPath);
+    const fileName = mediaPath.split(/[/\\]/).pop();
+    const caption = row.caption_text || row.response;
+    const buffer = fs.readFileSync(mediaPath);
+
+    return {
+      type: mediaType,
+      mediaPath,
+      fileName,
+      caption,
+      buffer,
+      mimetype: getMimeType(mediaPath)
+    };
   }
   return { type: 'text', text: row.response };
 }

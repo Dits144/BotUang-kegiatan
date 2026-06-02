@@ -407,8 +407,19 @@ async function start() {
       }
 
       const autoResp = isGroupMessage ? customCommands.handleAutoResponse(ctx) : null;
-      if (autoResp?.type === 'image') return void await sock.sendMessage(groupId, { image: autoResp.imageBuffer, caption: autoResp.caption }, { quoted: msg });
-      if (autoResp?.type === 'text') return void await sock.sendMessage(groupId, { text: autoResp.text }, { quoted: msg });
+      if (autoResp) {
+        if (autoResp.type === 'image') {
+          return void await sock.sendMessage(groupId, { image: autoResp.buffer, caption: autoResp.caption }, { quoted: msg });
+        } else if (autoResp.type === 'video') {
+          return void await sock.sendMessage(groupId, { video: autoResp.buffer, caption: autoResp.caption }, { quoted: msg });
+        } else if (autoResp.type === 'audio') {
+          return void await sock.sendMessage(groupId, { audio: autoResp.buffer, mimetype: autoResp.mimetype }, { quoted: msg });
+        } else if (autoResp.type === 'document') {
+          return void await sock.sendMessage(groupId, { document: autoResp.buffer, mimetype: autoResp.mimetype, fileName: autoResp.fileName, caption: autoResp.caption }, { quoted: msg });
+        } else if (autoResp.type === 'text') {
+          return void await sock.sendMessage(groupId, { text: autoResp.text }, { quoted: msg });
+        }
+      }
 
       const { db } = require('./db/database');
       const set = db.prepare('SELECT typo_enabled FROM group_settings WHERE group_id=?').get(groupId);
