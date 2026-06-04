@@ -120,7 +120,7 @@ async function processDueReminders(sock) {
     if (r.remind_type === 'time') {
       dispatchKey = `t:${r.id}:${ddmmyyyy}:${hhmm}`;
     } else if (r.remind_type === 'date') {
-      dispatchKey = `d:${r.id}:${ddmmyyyy}`;
+      dispatchKey = `d:${r.id}:${r.remind_value}`;
     } else if (r.remind_type === 'datetime') {
       dispatchKey = `dt:${r.id}:${r.remind_value}`;
     } else {
@@ -128,10 +128,33 @@ async function processDueReminders(sock) {
     }
 
     /* Check if due */
-    const isDue =
-      (r.remind_type === 'time'     && r.remind_value === hhmm) ||
-      (r.remind_type === 'date'     && r.remind_value === ddmmyyyy) ||
-      (r.remind_type === 'datetime' && r.remind_value === `${hhmm}&${ddmmyyyy}`);
+    let isDue = false;
+    if (r.remind_type === 'time') {
+      isDue = (r.remind_value === hhmm);
+    } else if (r.remind_type === 'date') {
+      try {
+        const [day, month, year] = r.remind_value.split('/').map(Number);
+        const scheduled = DateTime.fromObject({ year, month, day, hour: 0, minute: 0 }, { zone: TIMEZONE });
+        isDue = scheduled.isValid && (scheduled <= current);
+      } catch (e) {
+        isDue = (r.remind_value === ddmmyyyy);
+      }
+    } else if (r.remind_type === 'datetime') {
+      try {
+        if (r.remind_value.includes('&')) {
+          const [timePart, datePart] = r.remind_value.split('&');
+          const [hour, minute] = timePart.split(':').map(Number);
+          const [day, month, year] = datePart.split('/').map(Number);
+          const scheduled = DateTime.fromObject({ year, month, day, hour, minute }, { zone: TIMEZONE });
+          isDue = scheduled.isValid && (scheduled <= current);
+        } else {
+          const scheduled = DateTime.fromISO(r.remind_value, { zone: TIMEZONE });
+          isDue = scheduled.isValid && (scheduled <= current);
+        }
+      } catch (e) {
+        isDue = (r.remind_value === `${hhmm}&${ddmmyyyy}`);
+      }
+    }
 
     if (!isDue) continue;
 

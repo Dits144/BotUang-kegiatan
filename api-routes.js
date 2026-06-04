@@ -1020,7 +1020,8 @@ function getExtFromMime(mime, defaultExt = 'bin') {
 
 router.post('/groups/:groupId/commands', (req, res) => {
   try {
-    const { keyword, response, image_url } = req.body;
+    const { response, image_url } = req.body;
+    const keyword = req.body.keyword ? req.body.keyword.trim().toUpperCase() : '';
     const groupId = req.params.groupId;
     if (!keyword || !response) return res.status(400).json({ error: 'Keyword and response are required' });
 
@@ -1092,7 +1093,8 @@ router.post('/groups/:groupId/commands', (req, res) => {
 
 router.put('/groups/:groupId/commands/:id', (req, res) => {
   try {
-    const { keyword, response, image_url } = req.body;
+    const { response, image_url } = req.body;
+    const keyword = req.body.keyword ? req.body.keyword.trim().toUpperCase() : '';
     const groupId = req.params.groupId;
     const id = req.params.id;
     if (!keyword || !response) return res.status(400).json({ error: 'Keyword and response are required' });
