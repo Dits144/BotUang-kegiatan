@@ -224,7 +224,9 @@ async function start() {
         return;
       }
 
-      if (!isRentalActive(groupId)) {
+      const isDasborCommand = text.trim().toLowerCase() === 'dasbor';
+
+      if (!isRentalActive(groupId) && !isDasborCommand) {
         if (/^info$/i.test(text)) {
           const info = await infoGroup(sock, groupId);
           if (info) await sock.sendMessage(groupId, { text: `${info}\nStatus Sewa: Belum Aktif` }, { quoted: msg });
