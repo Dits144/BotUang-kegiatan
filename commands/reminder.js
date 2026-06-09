@@ -182,6 +182,12 @@ async function processDueReminders() {
         text: `⏰ *REMINDER*\n\n${r.remind_text}`
       });
       console.log(`[Reminder] Sent reminder ${r.id} to ${r.group_id}`);
+
+      /* Soft delete one-time reminders after successful dispatch */
+      if (r.remind_type === 'date' || r.remind_type === 'datetime') {
+        db.prepare('UPDATE reminders SET deleted_at=? WHERE id=?').run(nowIso(), r.id);
+        console.log(`[Reminder] Soft-deleted one-time reminder ${r.id} after successful send.`);
+      }
     } catch (e) {
       console.error(`[Reminder] Send error for reminder ${r.id}:`, e.message);
       /* Roll back dispatch so it retries next tick */
