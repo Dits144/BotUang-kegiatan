@@ -110,14 +110,23 @@ async function extractCommandMedia(msg, text) {
 }
 
 /* ─── H-1 Rental Warning Scheduler (runs every hour) ─── */
+let warningSchedulerStarted = false;
+let activeWarningSock = null;
+
 function startRentalWarningScheduler(sock) {
+  activeWarningSock = sock;
+  if (warningSchedulerStarted) return;
+  warningSchedulerStarted = true;
+
   async function checkAllGroups() {
+    const sockInstance = activeWarningSock;
+    if (!sockInstance) return;
     const { db } = require('./db/database');
     const groups = db.prepare('SELECT group_id FROM group_rentals WHERE is_active=1').all();
     for (const g of groups) {
       try {
         const warn = shouldWarnExpiring(g.group_id);
-        if (warn) await sock.sendMessage(g.group_id, { text: warn });
+        if (warn) await sockInstance.sendMessage(g.group_id, { text: warn });
       } catch (e) {
         console.error('[RentalWarn] Error for', g.group_id, e.message);
       }
@@ -139,7 +148,10 @@ async function start() {
   startApi(sock);
 
   const { sendHeartbeat, syncGroup } = require('./utils/lovableApi');
-  setInterval(() => sendHeartbeat(true).catch(() => {}), 60000); // 1 menit
+  if (!global.heartbeatIntervalStarted) {
+    global.heartbeatIntervalStarted = true;
+    setInterval(() => sendHeartbeat(true).catch(() => {}), 60000); // 1 menit
+  }
   sendHeartbeat(true).catch(() => {});
 
   async function syncToLovableOnStartup() {

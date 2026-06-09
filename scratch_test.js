@@ -1,3 +1,3 @@
 const { db } = require('./db/database');
-console.log('TOKENS:', db.prepare('SELECT * FROM dashboard_tokens').all());
-console.log('RENTALS:', db.prepare('SELECT * FROM group_rentals').all());
+console.log('REMINDERS:', db.prepare('SELECT * FROM reminders WHERE deleted_at IS NULL').all());
+console.log('DISPATCHES:', db.prepare('SELECT * FROM reminder_dispatch').all());

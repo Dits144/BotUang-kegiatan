@@ -3,6 +3,7 @@ const { db } = require('../db/database');
 const { TIMEZONE } = require('../config');
 
 let workerStarted = false;
+let activeSock = null;
 
 function now() {
   return DateTime.now().setZone(TIMEZONE);
@@ -11,6 +12,7 @@ function now() {
 function nowIso() {
   return now().toISO();
 }
+
 
 /* ─── Ensure reminder_dispatch table exists with all needed cols ─── */
 db.exec(`
@@ -101,7 +103,9 @@ function handleNoRemind(ctx, canManage) {
 }
 
 /* ─── Worker ─── */
-async function processDueReminders(sock) {
+async function processDueReminders() {
+  const sock = activeSock;
+  if (!sock) return;
   const current   = now();
   const hhmm      = current.toFormat('HH:mm');
   const ddmmyyyy  = current.toFormat('dd/MM/yyyy');
@@ -213,13 +217,14 @@ async function processDueReminders(sock) {
 }
 
 function startReminderWorker(sock) {
+  activeSock = sock;
   if (workerStarted) return;
   workerStarted = true;
 
   /* Run immediately on start, then every 10 seconds */
-  processDueReminders(sock).catch((e) => console.error('[Reminder] Initial run error:', e.message));
+  processDueReminders().catch((e) => console.error('[Reminder] Initial run error:', e.message));
   setInterval(() => {
-    processDueReminders(sock).catch((e) => console.error('[Reminder] Worker error:', e.message));
+    processDueReminders().catch((e) => console.error('[Reminder] Worker error:', e.message));
   }, 10_000); // 10 detik untuk lebih presisi
 
   console.log('[Reminder] Worker started (interval: 10s)');

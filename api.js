@@ -2,9 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
+let expressApp = null;
+
 function startApi(sock) {
+  if (expressApp) {
+    expressApp.set('sock', sock);
+    console.log('[API] Updated socket instance reference.');
+    return expressApp;
+  }
+
   const app = express();
   app.set('sock', sock);
+  expressApp = app;
   const PORT = process.env.API_PORT || 3005;
 
   app.use(cors());
