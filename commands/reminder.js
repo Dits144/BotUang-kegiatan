@@ -174,7 +174,13 @@ async function processDueReminders() {
       continue;
     }
 
-    if (!inserted.changes) continue; // already sent this window
+    if (!inserted.changes) {
+      if (r.remind_type === 'date' || r.remind_type === 'datetime') {
+        db.prepare('UPDATE reminders SET deleted_at=? WHERE id=?').run(nowIso(), r.id);
+        console.log(`[Reminder] Cleaned up legacy sent one-time reminder ${r.id}`);
+      }
+      continue;
+    }
 
     /* Send message */
     try {
