@@ -7,13 +7,15 @@ async function fetchLovable(endpoint, method = 'GET', body = null) {
     return null;
   }
 
-  const url = `${LOVABLE_API_URL}${endpoint}`;
+  const baseUrl = (LOVABLE_API_URL || 'https://dashboardits.tech').replace(/\/+$/, '');
+  let url = `${baseUrl}${endpoint}`;
   const options = {
     method,
     headers: {
       'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'Content-Type': 'application/json'
-    }
+    },
+    redirect: 'manual'
   };
 
   if (body) {
@@ -21,7 +23,16 @@ async function fetchLovable(endpoint, method = 'GET', body = null) {
   }
 
   try {
-    const res = await fetch(url, options);
+    let res = await fetch(url, options);
+
+    // Follow redirects manually to preserve Authorization header across domain redirects
+    if (res.status >= 300 && res.status < 400) {
+      const redirectUrl = res.headers.get('location');
+      if (redirectUrl) {
+        res = await fetch(redirectUrl, options);
+      }
+    }
+
     if (!res.ok) {
       const errorText = await res.text();
       console.error(`[Lovable API] Error ${res.status} on ${method} ${endpoint}:`, errorText);
